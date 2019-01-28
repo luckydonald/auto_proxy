@@ -1,0 +1,11 @@
+version: '2.1'
+
+services:
+  auto_proxy:
+    build:
+      context: .
+    # ports:
+    #   - "80:80"
+    # volumes:
+    #   - /var/run/docker.sock:/tmp/docker.sock:ro
+    #   - /development_data/auto_proxy/:/etc/nginx/conf.d/
