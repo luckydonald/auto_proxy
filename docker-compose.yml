@@ -1,11 +1,17 @@
 version: '2.1'
-
 services:
+  tool:
+    build:
+      context: ./
+      args:
+        FOLDER: ""
+    environment:
+      SENTRY_DSN:
+      TG_API_KEYS: "BOT_KEY_A; BOT_KEY_B; BOT_..."
+      TG_REPORT_CHAT: "@username"  # or chat id
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+
   auto_proxy:
     build:
       context: .
-    # ports:
-    #   - "80:80"
-    # volumes:
-    #   - /var/run/docker.sock:/tmp/docker.sock:ro
-    #   - /development_data/auto_proxy/:/etc/nginx/conf.d/
