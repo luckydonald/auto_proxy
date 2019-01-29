@@ -116,30 +116,25 @@ server {
 
 
 {% for service in services %}
-    {% if service.access == "socket" %}
-        # via socket
-        upstream {{ service.name }}.internal {
-            {% for host in service.hosts %}
-                # {{ host }}
-            {% endfor %}
-
-            least_conn;  # https://nginx.org/en/docs/http/ngx_http_upstream_module.html#least_conn
-
+    upstream internal.{{ service.name }}.internal {
+        least_conn;  # https://nginx.org/en/docs/http/ngx_http_upstream_module.html#least_conn
+        {% for host in service.hosts %}
+            # host: {{ host }}
+        {% endfor %}
+        {% if service.access == "socket" %}
+            # via socket
             {% for instance in service.scaled_instances %}
-                # {{ instance.id }}
+                # {{ instance.id }}: {{ instance.name }}
             {% endfor %}
             server unix:/sockets/bot/{{ service.socket_name }}:;
-        }
-    {% else %}
-        # via network
-        upstream @{{ service.id }}.internal {
-            least_conn;  # https://nginx.org/en/docs/http/ngx_http_upstream_module.html#least_conn
+        {% else %}
+            # via network
             {% for instance in service.scaled_instances %}
-                # {{ instance.id }}
-                server {{ instance.id }}:{{ service.port }}
+                # {{ instance.id }}: {{ instance.name }}
+                server http://{{ instance.id }}:{{ service.port }}
             {% endfor %}
-        }
-    {% endif %}
+        {% endif %}
+    }
 {% endfor %}
 
 {% for host, services in services_by_host.items() %}
@@ -154,9 +149,9 @@ server {
             proxy_set_header X-Incoming-IP $remote_addr;
             {% if service.protocol == 'uwsgi' %}
                 include uwsgi_params;
-                uwsgi_pass http://{{ service.name }}.internal;
+                uwsgi_pass http://internal.{{ service.name }}.internal;
             {% else %}
-                proxy_pass http://{{ service.name }}.internal;
+                proxy_pass http://internal.{{ service.name }}.internal;
             {% endif %}
         }
     {% endfor %}
