@@ -30,4 +30,4 @@ HEALTHCHECK --start-period=5s CMD ["python", "healthcheck.py"]
 COPY $FOLDER/requirements.txt   /config/
 RUN pip install -r /config/requirements.txt
 
-COPY $FOLDER/code /app
+COPY $FOLDER/code/ /app/

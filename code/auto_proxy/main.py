@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_HOST="example.com"
-OUTPUT_FILENAME = "/data/nginx.conf"
+INPUT_FILENAME = "nginx.conf.template"
+OUTPUT_FILENAME = "/output/nginx.conf"
 
 
 class Status(object):
@@ -87,7 +88,7 @@ def main():
     # get previous config file, to see if we need to trigger a nginx reload.
     old_file = None
     try:
-        with open(OUTPUT_FILENAME) as f:
+        with open(OUTPUT_FILENAME, 'r') as f:
             old_file = n(f.read())
         # end with
     except OSError:
@@ -95,7 +96,7 @@ def main():
     # end if
 
     # prepare template
-    template = get_template("nginx.conf.template")
+    template = get_template(INPUT_FILENAME)
 
     # prepare docker
     filters = {"event": TRIGGER_EVENTS}
