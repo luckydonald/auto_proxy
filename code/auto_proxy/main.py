@@ -217,7 +217,11 @@ def inspect_and_template(client, docker_version, old_file, template):
             return container_environment_vars[var]
         # end def
 
-        def get_label(name, default, replace_variables_label=True, replace_variables_default=False, replace_variables=None):
+        def get_label(
+            name, default,
+            valid_values=None,
+            replace_variables_label=True, replace_variables_default=False, replace_variables=None,
+        ):
             """
             Gets a label from the container label section.
             Optionally allows to pull in environment variables of the form `§{VARNAME}`.
@@ -227,6 +231,9 @@ def inspect_and_template(client, docker_version, old_file, template):
 
             :param default: The default value, if label was not found
             :type  default: str
+
+            :param valid_values: A list of valid values
+            :type  valid_values: List[str]
 
             :param replace_variables_label: If we should replace `§{VARNAME}` environment variables in the loaded label value.
             :type  replace_variables_label: bool
@@ -257,6 +264,9 @@ def inspect_and_template(client, docker_version, old_file, template):
             elif replace_variables_label:
                 label = VAR_REPLACEMENT_REGEX.sub(env_replace_func, label)
             # end if
+            if valid_values is not None and label not in valid_values:
+                raise AssertionError(f'Invalid value for label {name}: Got {label!r}, allowed are {valid_values!r}')
+            # end if
             return label
         # end def
 
@@ -270,10 +280,10 @@ def inspect_and_template(client, docker_version, old_file, template):
         service_data = {
             "name": service_name,
             "short_name": service_name_short,
-            "mount_point": get_label('auto_proxy.access', f"/{service_name_short}"),
+            "mount_point": get_label('auto_proxy.mount_point', f"/{service_name_short}"),
             "hosts": hosts,
-            "access": get_label('auto_proxy.access', "net"),
-            "protocol": get_label('auto_proxy.protocol', "http"),
+            "access": get_label('auto_proxy.access', "net", valid_values=['net', 'socket']),
+            "protocol": get_label('auto_proxy.protocol', "http", valid_values=['http', 'uwsgi']),
             "port": int(get_label('auto_proxy.port', "80")),
             "environment": container_environment_vars,
         }
