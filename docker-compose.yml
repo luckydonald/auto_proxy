@@ -7,10 +7,8 @@ services:
         FOLDER: ""
     environment:
       SENTRY_DSN:
-      TG_API_KEYS: "BOT_KEY_A; BOT_KEY_B; BOT_..."
-      TG_REPORT_CHAT: "@username"  # or chat id
     volumes:
-      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
   auto_proxy:
     build:
