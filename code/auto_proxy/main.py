@@ -181,7 +181,7 @@ def inspect_and_template(client, docker_version, old_file, template):
     list_exception = False
     while list_exception is not None:
         try:
-            containers = client.containers.list(all=True, sparse=False)
+            containers = client.containers.list(sparse=False)
             list_exception = None
         except docker_errors.NotFound as e:  # probably a container which died just the right moment.
             list_exception = e
