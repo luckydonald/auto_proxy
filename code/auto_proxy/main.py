@@ -275,7 +275,7 @@ def inspect_and_template(client, docker_version, old_file, template):
             continue
         # end if
 
-        hosts = container.labels.get('auto-proxy.host', DEFAULT_HOST).split(",")
+        hosts = get_label('auto_proxy.hosts', get_label('auto_proxy.host', DEFAULT_HOST)).split(",")
 
         service_data = {
             "name": service_name,
