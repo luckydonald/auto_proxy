@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import re
+from datetime import datetime
 
 from docker import errors as docker_errors
 from html import escape
@@ -109,9 +110,10 @@ def main():
 
     docker_version = client.version()
 
+    logger.success("Running initial run.")
     inspect_and_template(client, docker_version, old_file, template)
 
-    # listen to incomming events
+    # listen to incoming events
     for event in w.run():
         logger.debug("New event:\n{!r}".format(event))
         if not hasattr(event, "status"):
@@ -309,9 +311,9 @@ def inspect_and_template(client, docker_version, old_file, template):
         # end if
     # end for
     services_by_host = {}
-    logger.success(f"instances_by_name: {instances_by_name}")
+    logger.debug(f"instances_by_name: {instances_by_name}")
     for instance in instances_by_name.values():
-        logger.success(f"instance: {instance}")
+        logger.debug(f"instance: {instance}")
         for host in instance['hosts']:
             if host not in services_by_host:
                 services_by_host[host] = []
@@ -336,14 +338,15 @@ def run_templating(
     d = client.info()
     docker = DockerInfo(
         name=d.get("Name"),
-        container_count=d.get("Containers"),
-        image_count=d.get("Images"),
+        container_count=int(d.get("Containers")),
+        image_count=int(d.get("Images")),
         version=docker_version.get("Version"),
         api_version=docker_version.get("ApiVersion"),
         go_version=docker_version.get("GoVersion"),
         operating_system=docker_version.get("Os"),
         architecture=docker_version.get("Arch"),
         current_container_id=get_current_container_id(),
+        datetime=datetime.now()
     )
 
     new_file = template.render(

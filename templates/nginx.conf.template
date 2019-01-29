@@ -1,54 +1,17 @@
-# If we receive X-Forwarded-Proto, pass it through; otherwise, pass along the
-# scheme used to connect to this server
-map $http_x_forwarded_proto $proxy_x_forwarded_proto {
-  default $http_x_forwarded_proto;
-  ''      $scheme;
-}
-# If we receive X-Forwarded-Port, pass it through; otherwise, pass along the
-# server port the client connected to
-map $http_x_forwarded_port $proxy_x_forwarded_port {
-  default $http_x_forwarded_port;
-  ''      $server_port;
-}
-# If we receive Upgrade, set Connection to "upgrade"; otherwise, delete any
-# Connection header that may have been passed to this server
-map $http_upgrade $proxy_connection {
-  default upgrade;
-  '' close;
-}
-# Apply fix for very long server names
-server_names_hash_bucket_size 128;
-# Default dhparam
-# Set appropriate X-Forwarded-Ssl header
-map $scheme $proxy_x_forwarded_ssl {
-  default off;
-  https on;
-}
-gzip_types text/plain text/css application/javascript application/json application/x-javascript text/xml application/xml application/xml+rss text/javascript;
-log_format vhost '$host $remote_addr - $remote_user [$time_local] '
-                 '"$request" $status $body_bytes_sent '
-                 '"$http_referer" "$http_user_agent"';
-access_log off;
-# HTTP 1.1 support
-proxy_http_version 1.1;
-proxy_buffering off;
-proxy_set_header Host $http_host;
-proxy_set_header Upgrade $http_upgrade;
-proxy_set_header Connection $proxy_connection;
-proxy_set_header X-Real-IP $remote_addr;
-proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-proxy_set_header X-Forwarded-Proto $proxy_x_forwarded_proto;
-proxy_set_header X-Forwarded-Ssl $proxy_x_forwarded_ssl;
-proxy_set_header X-Forwarded-Port $proxy_x_forwarded_port;
-# Mitigate httpoxy attack (see README for details)
-proxy_set_header Proxy "";
-server {
-	server_name _; # This is just an invalid value which will never trigger on a real hostname.
-	listen 80;
-	access_log /var/log/nginx/access.log vhost;
-	return 503;
-}
-{% set _services = [
+{# This is how the available variables (with out _) could look like: -#}
+{%- set _docker = {
+    "name": 'hostname',
+    "container_count": 12,
+    "image_count": 42,
+    "version": "18.01.0-ce",
+    "api_version": "1.35",
+    "go_version": "go1.9.2",
+    "operating_system": "linux",
+    "architecture": "amd64",
+    "current_container_id": "1239asduad39dda9ds9da9d",
+    "datetime": "datetime.now()",
+} -%}
+{%- set _services = [
     {
         "name": "dockertgbot_derpi_pon",
         "name_short": "derpi_pon",
@@ -100,60 +63,119 @@ server {
         },
     },
 
-] %}
-{% set _services_by_name = {
+] -%}
+{%- set _services_by_name = {
     "dockertgbot_derpi_pon": _services[0],
     "dockertgbot_sticker_tag": _services[1],
+} -%}
+
+{%- set _services_by_host = {
+    "bots.bonbotics.io": [_services[0], _services[1]],
+    "getstickers.me": [_services[1]],
+    "more-bots.bonbotics.io": [_services[2]],
+} -%}
+
+###############
+# Build stats
+# Date: {{ docker.datetime.isoformat() }}
+# Containers: {{ docker.container_count }}
+# Images: {{ docker.image_count }}
+# Build by [auto_proxy] running in container {{ docker.current_container_id }}.
+###############
+
+# If we receive X-Forwarded-Proto, pass it through; otherwise, pass along the
+# scheme used to connect to this server
+map $http_x_forwarded_proto $proxy_x_forwarded_proto {
+  default $http_x_forwarded_proto;
+  ''      $scheme;
 }
-%}
-
-{% set _services_by_host = {
-    "bots.bonbotics.io": [_services],
-    "more-bots.bonbotics.io": [_services],
-    "getstickers.me": [_services],
+# If we receive X-Forwarded-Port, pass it through; otherwise, pass along the
+# server port the client connected to
+map $http_x_forwarded_port $proxy_x_forwarded_port {
+  default $http_x_forwarded_port;
+  ''      $server_port;
 }
-%}
+# If we receive Upgrade, set Connection to "upgrade"; otherwise, delete any
+# Connection header that may have been passed to this server
+map $http_upgrade $proxy_connection {
+  default upgrade;
+  '' close;
+}
+# Apply fix for very long server names
+server_names_hash_bucket_size 128;
+# Default dhparam
+# Set appropriate X-Forwarded-Ssl header
+map $scheme $proxy_x_forwarded_ssl {
+  default off;
+  https on;
+}
+gzip_types text/plain text/css application/javascript application/json application/x-javascript text/xml application/xml application/xml+rss text/javascript;
+log_format vhost '$host $remote_addr - $remote_user [$time_local] '
+                 '"$request" $status $body_bytes_sent '
+                 '"$http_referer" "$http_user_agent"';
+access_log off;
+# HTTP 1.1 support
+proxy_http_version 1.1;
+proxy_buffering off;
+proxy_set_header Host $http_host;
+proxy_set_header Upgrade $http_upgrade;
+proxy_set_header Connection $proxy_connection;
+proxy_set_header X-Real-IP $remote_addr;
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+proxy_set_header X-Forwarded-Proto $proxy_x_forwarded_proto;
+proxy_set_header X-Forwarded-Ssl $proxy_x_forwarded_ssl;
+proxy_set_header X-Forwarded-Port $proxy_x_forwarded_port;
+# Mitigate httpoxy attack (see README for details)
+proxy_set_header Proxy "";
+server {
+	server_name _; # This is just an invalid value which will never trigger on a real hostname.
+	listen 80;
+	access_log /var/log/nginx/access.log vhost;
+	return 503;
+}
 
 
-{% for service in services %}
+{%- for service in services %}
     upstream internal.{{ service.name }}.internal {
         least_conn;  # https://nginx.org/en/docs/http/ngx_http_upstream_module.html#least_conn
-        {% for host in service.hosts %}
+        {%- for host in service.hosts %}
             # host: {{ host }}
-        {% endfor %}
-        {% if service.access == "socket" %}
+        {%- endfor %}
+        {%- if service.access == "socket" %}
             # via socket
-            {% for instance in service.scaled_instances %}
+            {%- for instance in service.scaled_instances %}
                 # {{ instance.name }}: {{ instance.id }}
-            {% endfor %}
+            {%- endfor %}
             server unix:/sockets/bot/{{ service.socket_name }}:;
-        {% else %}
+        {%- else %}
             # via network
-            {% for instance in service.scaled_instances %}
+            {%- for instance in service.scaled_instances %}
                 # {{ instance.name }}: {{ instance.id }}
                 server http://{{ instance.id }}:{{ service.port }}
-            {% endfor %}
-        {% endif %}
+            {%- endfor %}
+        {%- endif %}
     }
-{% endfor %}
+{% endfor -%}
 
-{% for host, services in services_by_host.items() %}
+{%- for host, services in services_by_host.items() %}
 server {
 	server_name {{ host }};
 	listen 80;
 	access_log /var/log/nginx/access.log vhost;
 
-    {% for service in services %}
+    {%- for service in services %}
         location /{{ service.mount_point }} {
             proxy_set_header X-Host $host;
             proxy_set_header X-Incoming-IP $remote_addr;
-            {% if service.protocol == 'uwsgi' %}
+            {%- if service.protocol == 'uwsgi' %}
                 include uwsgi_params;
                 uwsgi_pass http://internal.{{ service.name }}.internal;
-            {% else %}
+            {%- else %}
                 proxy_pass http://internal.{{ service.name }}.internal;
-            {% endif %}
+            {%- endif %}
         }
-    {% endfor %}
+    {%- endfor %}
 }
-{% endfor %}
+{%- endfor %}
+
+# end of file{# -#}

@@ -1,7 +1,7 @@
 class DockerInfo(object):
     def __init__(
         self, name, container_count, image_count, version, api_version, go_version,
-        operating_system, architecture, current_container_id
+        operating_system, architecture, current_container_id, datetime
     ):
         """
 
@@ -14,6 +14,7 @@ class DockerInfo(object):
         :type operating_system: string
         :type architecture: string
         :type current_container_id: string
+        :type datetime: datetime.datetime
         """
         self.name = str(name)
         self.container_count = int(container_count)
@@ -24,3 +25,4 @@ class DockerInfo(object):
         self.operating_system = str(operating_system)
         self.architecture = str(architecture)
         self.current_container_id = str(current_container_id)
+        self.datetime = datetime
