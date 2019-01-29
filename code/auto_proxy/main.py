@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-import json
-import iso8601
-
+from docker import errors as docker_errors
 from html import escape
 from DictObject import DictObject
 from luckydonaldUtils.logger import logging
@@ -101,8 +99,11 @@ def main():
     # prepare docker
     filters = {"event": TRIGGER_EVENTS}
     w = Watcher(filters=filters)
+    client = w.client
 
-    docker_version = w.client.version()
+    docker_version = client.version()
+
+    inspect_and_template(client, docker_version, old_file, template)
 
     # listen to incomming events
     for event in w.run():
@@ -121,7 +122,7 @@ def main():
         # end if
         container_id = event.id
 
-        more_data = DictObject.objectify(w.client.api.inspect_container(container_id))
+        more_data = DictObject.objectify(client.api.inspect_container(container_id))
 
         # getting the right STATUS
         if ":" in event.status:
@@ -153,83 +154,106 @@ def main():
         # end if
 
         assert isinstance(status, Status)
-        message = "{emoji} Container <code>{container}</code>{image} {text}".format(
-            image=" (<code>{}</code>)".format(escape(image)) if image else "",
-            emoji=escape(status.emoji), container=escape(container),
-            text=escape(status.text),
+        message = "{emoji} Container {container}: {image} {text}".format(
+            image=" ({})".format(image) if image else "",
+            emoji=status.emoji, container=container,
+            text=status.text,
         )
+        logger.success(message)
 
         # now
         # containers
 
-        containers = w.client.containers.list(all=True, sparse=False)
-        instances_by_name = {}
-        for container in containers:
-            if not container.labels.get('auto_proxy.enable', False):
-                logger.debug(f'skipping wrong container: {container.id}')
-            hosts = container.labels.get('auto-proxy.host', DEFAULT_HOST).split(",")
-            if all(label in container.labels for label in (
-                'com.docker.compose.project',
-                'com.docker.compose.service',
-                'com.docker.compose.container-number'
-            )):
-                service_name = container.labels['com.docker.compose.project'] + "_" \
-                               + container.labels['com.docker.compose.service'] # + "_" \
-                               #+ ['com.docker.compose.container-number']
-                # lol
-            else:
-                service_name = container.name
-            # end if
-
-            service_data = {
-                "name": service_name,
-                "hosts": hosts,
-                "access": container.labels.get('auto_proxy.access', "net"),
-                "protocol": container.labels.get('auto_proxy.protocol', "http"),
-                "port": int(container.labels.get('auto_proxy.port', 80)),
-            }
-            instance_data = {
-                "id": container.id,
-                "name": container.name,
-            }
-            if service_name not in instances_by_name:
-                instance = {
-                    **service_data,
-                    "scaled_instances": [instance_data]
-                }
-            else:
-                instance = instances_by_name[service_name]
-                for k, v in service_data.items():
-                    if instance[k] != v:
-                        raise AssertionError("instance[k] != v", k, service_data, instance)
-                    # end if
-                # end for
-                instance['scaled_instances'].append(instance_data)
-            # end if
-            instances_by_name[service_name] = instance
-        # end for
-
-        services_by_host = {}
-        for instance in instances_by_name.items():
-            for host in instance['hosts']:
-                if host not in services_by_host:
-                    services_by_host[host] = []
-                # end if
-                services_by_host[host].append(instance)
-            # end for
-        # end for
-
-        changed, old_file = run_templating(
-            w.client, docker_version, old_file, template,
-            services=instances_by_name.items(), services_by_host=services_by_host,
-        )
+        did_change, old_file = inspect_and_template(client, docker_version, old_file, template, )
     # end for
+# end def
+
+
+def inspect_and_template(client, docker_version, old_file, template):
+    containers = []
+    # retry listing until it succeeds
+    list_exception = False
+    while list_exception is not None:
+        try:
+            containers = client.containers.list(all=True, sparse=False)
+            list_exception = None
+        except docker_errors.NotFound as e:  # probably a container which died just the right moment.
+            list_exception = e
+            logger.warn("Exception occured when listing, retrying...", exc_info=True)
+        # end try
+    # end while
+    instances_by_name = {}
+    for container in containers:
+        if not container.labels.get('auto_proxy.enable', False):
+            logger.debug(f'skipping wrong container: {container.id}')
+        hosts = container.labels.get('auto-proxy.host', DEFAULT_HOST).split(",")
+        if all(label in container.labels for label in (
+            'com.docker.compose.project',
+            'com.docker.compose.service',
+            'com.docker.compose.container-number'
+        )):
+            service_name = container.labels['com.docker.compose.project'] + "_" \
+                           + container.labels['com.docker.compose.service']  # + "_" \
+            # + ['com.docker.compose.container-number']
+            service_name_short = container.labels['com.docker.compose.service']
+
+        else:
+            service_name = container.name
+            service_name_short = service_name
+        # end if
+
+        service_data = {
+            "name": service_name,
+            "short_name": service_name_short,
+            "hosts": hosts,
+            "access": container.labels.get('auto_proxy.access', "net"),
+            "protocol": container.labels.get('auto_proxy.protocol', "http"),
+            "port": int(container.labels.get('auto_proxy.port', 80)),
+        }
+        instance_data = {
+            "id": container.id,
+            "name": container.name,
+        }
+        if service_name not in instances_by_name:
+            instance = {
+                "scaled_instances": [instance_data]
+            }
+            instance.update(service_data)
+            instances_by_name[service_name] = instance
+        else:
+            instance = instances_by_name[service_name]
+            for k, v in service_data.items():
+                if instance[k] != v:
+                    raise AssertionError("instance[k] != v", k, service_data, instance)
+                # end if
+            # end for
+            instance['scaled_instances'].append(instance_data)
+        # end if
+    # end for
+    services_by_host = {}
+    logger.success(f"instances_by_name: {instances_by_name}")
+    for instance in instances_by_name.values():
+        logger.success(f"instance: {instance}")
+        for host in instance['hosts']:
+            if host not in services_by_host:
+                services_by_host[host] = []
+            # end if
+            services_by_host[host].append(instance)
+        # end for
+    # end for
+    did_change, old_file = run_templating(
+        client, docker_version, old_file, template,
+        services_by_host=services_by_host,
+        services_by_name=instances_by_name,
+        services=instances_by_name.values(),
+    )
+    return did_change, old_file
 # end def
 
 
 def run_templating(
     client, docker_version, old_file, template,
-    services, services_by_host,
+    services, services_by_host, services_by_name,
 ):
     d = client.info()
     docker = DockerInfo(
@@ -244,7 +268,12 @@ def run_templating(
         current_container_id=get_current_container_id(),
     )
 
-    new_file = template.render(docker=docker, services=services, services_by_host=services_by_host)
+    new_file = template.render(
+        docker=docker,
+        services=services,
+        services_by_host=services_by_host,
+        services_by_name=services_by_name
+    )
     if new_file != old_file:
         with open(OUTPUT_FILENAME, 'w') as f:
             f.write(new_file)
