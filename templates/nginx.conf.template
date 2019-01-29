@@ -124,13 +124,13 @@ server {
         {% if service.access == "socket" %}
             # via socket
             {% for instance in service.scaled_instances %}
-                # {{ instance.id }}: {{ instance.name }}
+                # {{ instance.name }}: {{ instance.id }}
             {% endfor %}
             server unix:/sockets/bot/{{ service.socket_name }}:;
         {% else %}
             # via network
             {% for instance in service.scaled_instances %}
-                # {{ instance.id }}: {{ instance.name }}
+                # {{ instance.name }}: {{ instance.id }}
                 server http://{{ instance.id }}:{{ service.port }}
             {% endfor %}
         {% endif %}
