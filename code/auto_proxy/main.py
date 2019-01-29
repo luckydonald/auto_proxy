@@ -7,11 +7,12 @@ from DictObject import DictObject
 from pytgbot.bot import Bot
 from pytgbot.exceptions import TgApiServerException
 from luckydonaldUtils.logger import logging
+from luckydonaldUtils.encoding import to_native as n
 from docker.models.containers import Container
 
+from auto_proxy.jinja2_utils import get_template
 from .classes import DockerInfo
 from .docker_utils import get_current_container_id
-from .secrets import API_KEYS, TG_REPORT_CHAT
 from .watcher import Watcher
 
 __author__ = 'luckydonald'
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_HOST="example.com"
+OUTPUT_FILENAME = "/data/nginx.conf"
 
 
 class Status(object):
@@ -83,26 +85,28 @@ STATUS = {s.key: s for s in statussses}
 
 def main():
     logger.success("Will watch for status changes.")
-    events_wanted = ["health_status", "created", "exited", "die", "start"]
-    events_wanted += list(STATUS.keys())
-    events_wanted = list(set(events_wanted))  # only one of each.
-    events_wanted.remove("exec_create")
-    events_wanted.remove("exec_start")
-    logger.info("listening to the events: {!r}".format(events_wanted))
+    logger.info("listening to the events: {!r}".format(TRIGGER_EVENTS))
 
+    # get previous config file, to see if we need to trigger a nginx reload.
     old_file = None
     try:
-        with open("/data/nginx.conf") as f:
-            old_file = f.read()
+        with open(OUTPUT_FILENAME) as f:
+            old_file = n(f.read())
         # end with
     except OSError:
         logger.info("Not yet existent (or not readable): /data/nginx.conf")
     # end if
 
+    # prepare template
+    template = get_template("nginx.conf.template")
+
+    # prepare docker
     filters = {"event": TRIGGER_EVENTS}
     w = Watcher(filters=filters)
 
     docker_version = w.client.version()
+
+    # listen to incomming events
     for event in w.run():
         logger.debug("New event:\n{!r}".format(event))
         if not hasattr(event, "status"):
@@ -157,31 +161,46 @@ def main():
             text=escape(status.text),
         )
 
-        d = w.client.info()
-        docker = DockerInfo(
-            name=d.get("Name"),
-            container_count=d.get("Containers"),
-            image_count=d.get("Images"),
-            version=docker_version.get("Version"),
-            api_version=docker_version.get("ApiVersion"),
-            go_version=docker_version.get("GoVersion"),
-            operating_system=docker_version.get("Os"),
-            architecture=docker_version.get("Arch"),
-            current_container_id=get_current_container_id(),
+        changed, old_file = run_templating(
+            w.client, docker_version, old_file, template
         )
-
-        containers = w.client.containers.list(all=True)
-
-        by_host = {}
-        for container in containers:
-            host = container.labels.get('auto-proxy.host', DEFAULT_HOST)
-            if host not in by_host:
-                by_host[host] = []
-            # end if
-            by_host[host].append(host)
-        # end for
-
     # end for
+# end def
+
+
+def run_templating(client, docker_version, old_file, template):
+    d = client.info()
+    docker = DockerInfo(
+        name=d.get("Name"),
+        container_count=d.get("Containers"),
+        image_count=d.get("Images"),
+        version=docker_version.get("Version"),
+        api_version=docker_version.get("ApiVersion"),
+        go_version=docker_version.get("GoVersion"),
+        operating_system=docker_version.get("Os"),
+        architecture=docker_version.get("Arch"),
+        current_container_id=get_current_container_id(),
+    )
+    containers = client.containers.list(all=True, sparse=False)
+    by_host = {}
+    for container in containers:
+        host = container.labels.get('auto-proxy.host', DEFAULT_HOST)
+        if host not in by_host:
+            by_host[host] = []
+        # end if
+        by_host[host].append(host)
+    # end for
+    new_file = template.render(docker=docker, containers_by_host=by_host, containers=containers)
+    if new_file != old_file:
+        with open(OUTPUT_FILENAME, 'w') as f:
+            f.write(new_file)
+        # end with
+        print('I AM SO TRIGGERED!!!!11111ELEVEN11')
+
+        # old_file = new_file
+        return True, new_file
+    # end if
+    return False, old_file
 # end main
 
 
