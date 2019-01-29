@@ -67,7 +67,7 @@ def envs_to_dict(env_list):
     ...     'PIP_DISABLE_PIP_VERSION_CHECK=on'
     ... ]
 
-    >>> result = envs_to_dict(container)
+    >>> result = envs_to_dict(envs)
 
     >>> result == {
     ...     'URL_HOSTNAME': 'more-bots.bonbotics.io',
@@ -147,5 +147,8 @@ def split_env(var):
     :return: tuple ``(variable, value)``
     :rtype: Tuple[str]
     """
-    return var.split("=", maxsplit=1)
+    if not "=" in var:
+        return var, None
+    # end if
+    return tuple(var.split("=", maxsplit=1))
 # end def
