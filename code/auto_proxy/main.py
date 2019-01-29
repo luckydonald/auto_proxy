@@ -280,11 +280,12 @@ def inspect_and_template(client, docker_version, old_file, template):
         service_data = {
             "name": service_name,
             "short_name": service_name_short,
-            "mount_point": get_label('auto_proxy.mount_point', f"/{service_name_short}"),
+            "mount_point": get_label('auto_proxy.mount_point', f"{service_name_short}"),
             "hosts": hosts,
             "access": get_label('auto_proxy.access', "net", valid_values=['net', 'socket']),
             "protocol": get_label('auto_proxy.protocol', "http", valid_values=['http', 'uwsgi']),
             "port": int(get_label('auto_proxy.port', "80")),
+            "socket_name": int(get_label('auto_proxy.socket_name', f"{service_name_short}.sock")),
             "environment": container_environment_vars,
         }
         instance_data = {

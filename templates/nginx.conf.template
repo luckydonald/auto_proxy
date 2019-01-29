@@ -128,7 +128,7 @@ server {
             {% for instance in service.scaled_instances %}
                 # {{ instance.id }}
             {% endfor %}
-            server unix:/sockets/bot/{{ service.name }}.sock:;
+            server unix:/sockets/bot/{{ service.socket_name }}:;
         }
     {% else %}
         # via network

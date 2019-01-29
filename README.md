@@ -58,9 +58,19 @@ Default: `80`
 #### `auto_proxy.mount_point`
 Set a mount point on the host.
 
-Default: `/{service_name_short}`
-Where `{service_name_short}` is the name of the container,
+Default: `/service_name_short`,
+Where `service_name_short` is the name of the container,
 or just the service name in case of docker compose.
+
+#### `auto_proxy.socket_name`
+> Used only if `auto_proxy.access = socket`.
+
+Custom socket file name.
+
+Default: `service_name_short.sock`,
+Where `service_name_short` is the name of the container,
+or just the service name in case of docker compose.
+
 
 #### `auto_proxy.container_path`
 #### Not implemented
