@@ -1,6 +1,5 @@
 docker
 luckydonald-utils
-teleflask
 DictObject
-pytgbot==3.5.2
 iso8601
+jinja2

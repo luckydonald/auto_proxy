@@ -4,11 +4,8 @@ import iso8601
 
 from html import escape
 from DictObject import DictObject
-from pytgbot.bot import Bot
-from pytgbot.exceptions import TgApiServerException
 from luckydonaldUtils.logger import logging
 from luckydonaldUtils.encoding import to_native as n
-from docker.models.containers import Container
 
 from auto_proxy.jinja2_utils import get_template
 from .classes import DockerInfo
@@ -161,14 +158,78 @@ def main():
             text=escape(status.text),
         )
 
+        # now
+        # containers
+
+        containers = w.client.containers.list(all=True, sparse=False)
+        instances_by_name = {}
+        for container in containers:
+            if not container.labels.get('auto_proxy.enable', False):
+                logger.debug(f'skipping wrong container: {container.id}')
+            hosts = container.labels.get('auto-proxy.host', DEFAULT_HOST).split(",")
+            if all(label in container.labels for label in (
+                'com.docker.compose.project',
+                'com.docker.compose.service',
+                'com.docker.compose.container-number'
+            )):
+                service_name = container.labels['com.docker.compose.project'] + "_" \
+                               + container.labels['com.docker.compose.service'] # + "_" \
+                               #+ ['com.docker.compose.container-number']
+                # lol
+            else:
+                service_name = container.name
+            # end if
+
+            service_data = {
+                "name": service_name,
+                "hosts": hosts,
+                "access": container.labels.get('auto_proxy.access', "net"),
+                "protocol": container.labels.get('auto_proxy.protocol', "http"),
+                "port": int(container.labels.get('auto_proxy.port', 80)),
+            }
+            instance_data = {
+                "id": container.id,
+                "name": container.name,
+            }
+            if service_name not in instances_by_name:
+                instance = {
+                    **service_data,
+                    "scaled_instances": [instance_data]
+                }
+            else:
+                instance = instances_by_name[service_name]
+                for k, v in service_data.items():
+                    if instance[k] != v:
+                        raise AssertionError("instance[k] != v", k, service_data, instance)
+                    # end if
+                # end for
+                instance['scaled_instances'].append(instance_data)
+            # end if
+            instances_by_name[service_name] = instance
+        # end for
+
+        services_by_host = {}
+        for instance in instances_by_name.items():
+            for host in instance['hosts']:
+                if host not in services_by_host:
+                    services_by_host[host] = []
+                # end if
+                services_by_host[host].append(instance)
+            # end for
+        # end for
+
         changed, old_file = run_templating(
-            w.client, docker_version, old_file, template
+            w.client, docker_version, old_file, template,
+            services=instances_by_name.items(), services_by_host=services_by_host,
         )
     # end for
 # end def
 
 
-def run_templating(client, docker_version, old_file, template):
+def run_templating(
+    client, docker_version, old_file, template,
+    services, services_by_host,
+):
     d = client.info()
     docker = DockerInfo(
         name=d.get("Name"),
@@ -181,16 +242,8 @@ def run_templating(client, docker_version, old_file, template):
         architecture=docker_version.get("Arch"),
         current_container_id=get_current_container_id(),
     )
-    containers = client.containers.list(all=True, sparse=False)
-    by_host = {}
-    for container in containers:
-        host = container.labels.get('auto-proxy.host', DEFAULT_HOST)
-        if host not in by_host:
-            by_host[host] = []
-        # end if
-        by_host[host].append(host)
-    # end for
-    new_file = template.render(docker=docker, containers_by_host=by_host, containers=containers)
+
+    new_file = template.render(docker=docker, services=services, services_by_host=services_by_host)
     if new_file != old_file:
         with open(OUTPUT_FILENAME, 'w') as f:
             f.write(new_file)

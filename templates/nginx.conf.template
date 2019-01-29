@@ -48,42 +48,52 @@ server {
 	access_log /var/log/nginx/access.log vhost;
 	return 503;
 }
-{#
-services_by_host = {
-    # "host": services[]
-    "bots.bonbotics.io": [...],
-    "more-bots.bonbotics.io": [...],
-}
-services = [
+{% set _services = [
     {
         "name": "derpi_pon",
+        "hosts": ["more-bots.bonbotics.io"],
         "access": "socket",
-        "protocol": "uwsgi"
-        "instances": [
+        "protocol": "uwsgi",
+        "scaled_instances": [
             {
                 "id": "asdad98dadad9a8d2",
+                "name": "dockertgbot_derpi_pon_1",
             }
         ],
     },
     {
         "name": "sticker_tag",
+        "hosts": ["getstickers.me"],
         "access": "net",
         "port": 80,
-        "protocol": "http"
-        "instances": [
+        "protocol": "http",
+        "scaled_instances": [
             {
                 "id": "asdad98dadad9a8d2",
+                "name": "dockertgbot_sticker_tag_1",
             }
         ],
     },
-]
+] %}
+{% set _services_by_host = {
+    "bots.bonbotics.io": [_services],
+    "more-bots.bonbotics.io": [_services],
+    "getstickers.me": [_services],
+}
+%}
+
 
 #}
 {% for service in services %}
     {% if service.access == "socket" %}
         # via socket
         upstream {{ service.name }} {
+            {% for host in service.hosts %}
+                # {{ host }}
+            {% endfor %}
+
             least_conn;  # https://nginx.org/en/docs/http/ngx_http_upstream_module.html#least_conn
+
             {% for instance in service.scaled_instances %}
                 # {{ instance.id }}
             {% endfor %}
