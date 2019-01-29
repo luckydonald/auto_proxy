@@ -118,14 +118,16 @@ server {
 	access_log /var/log/nginx/access.log vhost;
 
     {% for service in services %}
-	location /{{ service.name }} {
-        proxy_set_header X-Host $host;
-        proxy_set_header X-Incoming-IP $remote_addr;
-        {% if service.protocol == 'uwsgi' %}
-            include uwsgi_params;
-            uwsgi_pass http://{{ service.name }};
-        {% else %}
-		    proxy_pass http://{{ service.name }};
-        {% endif %}
-	}
+        location /{{ service.name }} {
+            proxy_set_header X-Host $host;
+            proxy_set_header X-Incoming-IP $remote_addr;
+            {% if service.protocol == 'uwsgi' %}
+                include uwsgi_params;
+                uwsgi_pass http://{{ service.name }};
+            {% else %}
+                proxy_pass http://{{ service.name }};
+            {% endif %}
+        }
+    {% endfor %}
 }
+{% endfor %}
