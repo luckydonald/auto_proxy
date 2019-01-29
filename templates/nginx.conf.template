@@ -61,6 +61,9 @@ server {
                 "name": "dockertgbot_derpi_pon_1",
             }
         ],
+        "environment": {
+            "SOME_VAR": "value",
+        },
     },
     {
         "name": "dockertgbot_sticker_tag",
@@ -75,6 +78,9 @@ server {
                 "name": "dockertgbot_sticker_tag_1",
             }
         ],
+        "environment": {
+            "SOME_VAR": "value",
+        },
     },
     {
         "name": "agitated_booth",
@@ -89,6 +95,9 @@ server {
                 "name": "agitated_booth",
             }
         ],
+        "environment": {
+            "SOME_VAR": "value",
+        },
     },
 
 ] %}
@@ -109,7 +118,7 @@ server {
 {% for service in services %}
     {% if service.access == "socket" %}
         # via socket
-        upstream {{ service.name }} {
+        upstream {{ service.name }}.internal {
             {% for host in service.hosts %}
                 # {{ host }}
             {% endfor %}
@@ -123,7 +132,7 @@ server {
         }
     {% else %}
         # via network
-        upstream {{ service.id }} {
+        upstream @{{ service.id }}.internal {
             least_conn;  # https://nginx.org/en/docs/http/ngx_http_upstream_module.html#least_conn
             {% for instance in service.scaled_instances %}
                 # {{ instance.id }}
@@ -140,14 +149,14 @@ server {
 	access_log /var/log/nginx/access.log vhost;
 
     {% for service in services %}
-        location /{{ service.name }} {
+        location /{{ service.mount_point }} {
             proxy_set_header X-Host $host;
             proxy_set_header X-Incoming-IP $remote_addr;
             {% if service.protocol == 'uwsgi' %}
                 include uwsgi_params;
-                uwsgi_pass http://{{ service.name }};
+                uwsgi_pass http://{{ service.name }}.internal;
             {% else %}
-                proxy_pass http://{{ service.name }};
+                proxy_pass http://{{ service.name }}.internal;
             {% endif %}
         }
     {% endfor %}

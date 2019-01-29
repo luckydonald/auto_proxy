@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
+import re
+
 from docker import errors as docker_errors
 from html import escape
 from DictObject import DictObject
 from luckydonaldUtils.logger import logging
 from luckydonaldUtils.encoding import to_native as n
 
-from auto_proxy.jinja2_utils import get_template
-from .classes import DockerInfo
+from .jinja2_utils import get_template
 from .docker_utils import get_current_container_id
+from .docker_utils.env import extract_container_envs
+from .classes import DockerInfo
 from .watcher import Watcher
 
 __author__ = 'luckydonald'
@@ -27,6 +30,9 @@ class Status(object):
     # end def
 # end class
 
+
+VAR_REPLACEMENT_REGEX = re.compile('§{(?P<var>[A-Z_][A-Z0-9_]*)}')
+""" basically `§{VARNAME}` """
 
 TRIGGER_EVENTS = ['die', 'stop', 'start']
 
@@ -184,9 +190,6 @@ def inspect_and_template(client, docker_version, old_file, template):
     # end while
     instances_by_name = {}
     for container in containers:
-        if not container.labels.get('auto_proxy.enable', False):
-            logger.debug(f'skipping wrong container: {container.id}')
-        hosts = container.labels.get('auto-proxy.host', DEFAULT_HOST).split(",")
         if all(label in container.labels for label in (
             'com.docker.compose.project',
             'com.docker.compose.service',
@@ -196,19 +199,83 @@ def inspect_and_template(client, docker_version, old_file, template):
                            + container.labels['com.docker.compose.service']  # + "_" \
             # + ['com.docker.compose.container-number']
             service_name_short = container.labels['com.docker.compose.service']
-
         else:
             service_name = container.name
             service_name_short = service_name
         # end if
 
+        container_environment_vars = extract_container_envs(container)
+
+        def env_replace_func(match):
+            """
+            Used in :py:`get_label` as function to resolve the `§{VARNAME}` replacements.
+            See the regex :py:`VAR_REPLACEMENT_REGEX` above.
+            :param match:
+            :return:
+            """
+            var = match.group('var')
+            return container_environment_vars[var]
+        # end def
+
+        def get_label(name, default, replace_variables_label=True, replace_variables_default=False, replace_variables=None):
+            """
+            Gets a label from the container label section.
+            Optionally allows to pull in environment variables of the form `§{VARNAME}`.
+
+            :param name: name of the label
+            :type  name: str
+
+            :param default: The default value, if label was not found
+            :type  default: str
+
+            :param replace_variables_label: If we should replace `§{VARNAME}` environment variables in the loaded label value.
+            :type  replace_variables_label: bool
+
+            :param replace_variables_default: If we should replace `§{VARNAME}` environment variables in the fallback default value.
+            :type  replace_variables_default: bool
+
+            :param replace_variables: If we should replace `§{VARNAME}` environment variables
+                                      in the loaded label value and fallback default value.
+                                      This overwrites the settings of `replace_variables_label` and `replace_variables_default`.
+                                      Default: No action (`None`)
+            :type  replace_variables_label: None|bool
+
+            :return:
+            """
+            if isinstance(replace_variables, bool):
+                replace_variables_label = replace_variables
+                replace_variables_default = replace_variables
+            # end if
+            label = container.labels.get(name, None)
+            # TODO: https://stackoverflow.com/a/11819111/3423324#match-character-which-is-not-escaped
+            if label is None:
+                # use default
+                label = default
+                if replace_variables_default:
+                    label = VAR_REPLACEMENT_REGEX.sub(env_replace_func, label)
+                # end if
+            elif replace_variables_label:
+                label = VAR_REPLACEMENT_REGEX.sub(env_replace_func, label)
+            # end if
+            return label
+        # end def
+
+        if get_label('auto_proxy.enable', '0', replace_variables=False) != '1':
+            logger.debug(f'skipping wrong container: {container.id} {service_name}')
+            continue
+        # end if
+
+        hosts = container.labels.get('auto-proxy.host', DEFAULT_HOST).split(",")
+
         service_data = {
             "name": service_name,
             "short_name": service_name_short,
+            "mount_point": get_label('auto_proxy.access', f"/{service_name_short}"),
             "hosts": hosts,
-            "access": container.labels.get('auto_proxy.access', "net"),
-            "protocol": container.labels.get('auto_proxy.protocol', "http"),
-            "port": int(container.labels.get('auto_proxy.port', 80)),
+            "access": get_label('auto_proxy.access', "net"),
+            "protocol": get_label('auto_proxy.protocol', "http"),
+            "port": int(get_label('auto_proxy.port', "80")),
+            "environment": container_environment_vars,
         }
         instance_data = {
             "id": container.id,
