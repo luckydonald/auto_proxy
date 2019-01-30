@@ -147,7 +147,7 @@ resolver 127.0.0.11 valid=30s;
             {% for instance in service.scaled_instances -%}
                 # {{ instance.name }}: {{ instance.id }}
             {% endfor -%}
-            server unix:/sockets/bot/{{ service.socket_name }}:;
+            server unix:/sockets/bots/{{ service.socket_name }};
         {%- else %}
             # via network
             {%- for instance in service.scaled_instances %}
