@@ -151,7 +151,7 @@ server {
             # via network
             {%- for instance in service.scaled_instances %}
                 # {{ instance.name }}: {{ instance.id }}
-                server http://{{ instance.id[12:] }}:{{ service.port }};
+                server http://{{ instance.id[:12] }}:{{ service.port }};
             {%- endfor %}
         {%- endif %}
     }
