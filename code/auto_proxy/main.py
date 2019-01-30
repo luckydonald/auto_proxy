@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 import re
-from datetime import datetime
 
+from typing import List
 from docker import errors as docker_errors
-from html import escape
+from datetime import datetime
 from DictObject import DictObject
 from luckydonaldUtils.logger import logging
 from luckydonaldUtils.encoding import to_native as n
 
+from auto_proxy.docker_utils.signal import parse_trigger_config, trigger_containers
+from auto_proxy.secrets import SIGNALS
 from .jinja2_utils import get_template
 from .docker_utils import get_current_container_id
 from .docker_utils.env import extract_container_envs
@@ -100,6 +102,12 @@ def main():
         logger.info("Not yet existent (or not readable): /data/nginx.conf")
     # end if
 
+    reload_signals = []
+    if SIGNALS:
+        reload_signals = parse_trigger_config(SIGNALS)
+    # end if
+    logger.debug(f'Reload-Signal configuration: {reload_signals!r}')
+
     # prepare template
     template = get_template(INPUT_FILENAME)
 
@@ -172,7 +180,10 @@ def main():
         # now
         # containers
 
-        did_change, old_file = inspect_and_template(client, docker_version, old_file, template, )
+        did_change, old_file = inspect_and_template(client, docker_version, old_file, template)
+        if did_change:
+            trigger_containers(client, containers=reload_signals)
+        # end def
     # end for
 # end def
 
@@ -359,13 +370,15 @@ def run_templating(
         with open(OUTPUT_FILENAME, 'w') as f:
             f.write(new_file)
         # end with
-        print('I AM SO TRIGGERED!!!!11111ELEVEN11')
+        logger.success(f"File written to {OUTPUT_FILENAME}.")
 
         # old_file = new_file
         return True, new_file
     # end if
+    logger.info(f"File would be unchanged. Not written.")
     return False, old_file
 # end main
+
 
 
 
