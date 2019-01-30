@@ -166,7 +166,7 @@ server {
 
     {%- for service in services %}
         location /{{ service.mount_point }} {
-            proxy_set_header X-Host $host;
+            proxy_set_header Host $host;
             proxy_set_header X-Incoming-IP $remote_addr;
             {%- if service.protocol == 'uwsgi' %}
                 include uwsgi_params;
