@@ -1,4 +1,5 @@
 import docker
+from docker.errors import APIError
 from docker.models.containers import Container
 from luckydonaldUtils.logger import logging
 from typing import List, Tuple, Union, cast
@@ -63,6 +64,16 @@ def trigger_containers(
     for container, signal in containers:
         logger.info(f"Sending container {container!r} signal {signal!r}...")
         c: Container = client.containers.get(container)
-        c.kill(signal=signal)
+        try:
+            c.kill(signal=signal)
+        except APIError as e:
+            if (
+                e.status_code == 409  # conflict
+                and "not running" in str(e)
+            ):
+                logger.info(f'Couldn\'t send signal to container, not running: {c.id}')
+            else:
+                logger.warn(f'Couldn\'t send signal to container {c.id}: {e}')
+            # end if
     # end for
 # end def
