@@ -138,7 +138,7 @@ def main():
         # end if
         container_id = event.id
 
-        more_data = DictObject.objectify(client.api.inspect_container(container_id))
+        # more_data = DictObject.objectify(client.api.inspect_container(container_id))
 
         # getting the right STATUS
         if ":" in event.status:

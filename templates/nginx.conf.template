@@ -143,15 +143,15 @@ server {
         {%- endfor %}
         {%- if service.access == "socket" %}
             # via socket
-            {%- for instance in service.scaled_instances %}
+            {% for instance in service.scaled_instances -%}
                 # {{ instance.name }}: {{ instance.id }}
-            {%- endfor %}
+            {% endfor -%}
             server unix:/sockets/bot/{{ service.socket_name }}:;
         {%- else %}
             # via network
             {%- for instance in service.scaled_instances %}
                 # {{ instance.name }}: {{ instance.id }}
-                server http://{{ instance.id }}:{{ service.port }}
+                server http://{{ instance.id }}:{{ service.port }};
             {%- endfor %}
         {%- endif %}
     }

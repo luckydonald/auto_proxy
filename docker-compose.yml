@@ -1,15 +1,7 @@
 version: '2.1'
 services:
-  tool:
-    build:
-      context: ./
-      args:
-        FOLDER: ""
-    environment:
-      SENTRY_DSN:
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-
   auto_proxy:
     build:
       context: .
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
