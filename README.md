@@ -6,6 +6,9 @@ Use environment variables to configure the `auto_proxy` container.
 
 ### List of available environment variables
 #### `SIGNALS`
+> Note: Any containers with the [`auto_proxy.signal` label](#auto_proxy-signal) will be automatically added to this list, with the correct container id. 
+> Therefore you should prefer setting the `auto_proxy.signal` label on a specific container over using this. This is intended only for containers where you somehow can't set the labels.  
+
 On creation of a new config file it can send signals to other containers, to e.g. reload configuration files.
 Provide key-value like `container=signal`.
 
@@ -20,6 +23,7 @@ SIGNALS=nginx=sighup,nginx=1,nginx=SIGHUB
 ```  
 This would send `SIGHUP` 3 times to the `nginx` container.
 
+
 ## Container Labels
 
 ### Insert environment variables
@@ -28,12 +32,14 @@ Syntax is `§{VAR_NAME}`.
  
 ### List of available labels
 
-#### `auto_proxy.signal` (not yet implemented, use [SIGNALS](#signals))
+#### `auto_proxy.signal`
 > You don't need to set `auto_proxy.enable` for this to work.
 
 This container will be send an signal in case of a change in configuration.
+Can be the signal number or the case insensitive name.
+Also a comma separated list of multiple signals to send is possible.
 
-Example: `auto_proxy.signal: SIGHUP`
+Example: `auto_proxy.signal: SIGHUP,1,sighup` would have it send the `SIGHUP` signal 3 times. 
 
 Note: This label don't support [environment variables](#insert-environment-variables).
 
@@ -114,6 +120,8 @@ services:
       - "443:443"
     volumes:
       - auto_proxy:/etc/nginx/conf.d/
+    labels:
+      auto_proxy.signal: SIGHUP
     
   app:
     # ...
@@ -130,8 +138,11 @@ services:
       auto_proxy.access: socket
 ```
 
-Would result in the labels
+Would result in ´app´ having the labels
 - `auto_proxy.enable`: `1`
 - `auto_proxy.host`: `example.com`
 - `auto_proxy.mount_point`: `/service/v1/`
 - `auto_proxy.access`: `socket`
+
+And the `proxy` container getting a `SIGHUP` signal
+after any configuration change. 

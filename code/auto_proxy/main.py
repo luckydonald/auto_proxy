@@ -8,7 +8,7 @@ from DictObject import DictObject
 from luckydonaldUtils.logger import logging
 from luckydonaldUtils.encoding import to_native as n
 
-from auto_proxy.docker_utils.signal import parse_trigger_config, trigger_containers
+from auto_proxy.docker_utils.signal import parse_trigger_config, trigger_containers, parse_signals
 from auto_proxy.secrets import SIGNALS
 from .jinja2_utils import get_template
 from .docker_utils import get_current_container_id
@@ -102,11 +102,11 @@ def main():
         logger.info("Not yet existent (or not readable): /data/nginx.conf")
     # end if
 
-    reload_signals = []
+    global_reload_signals = []
     if SIGNALS:
-        reload_signals = parse_trigger_config(SIGNALS)
+        global_reload_signals = parse_trigger_config(SIGNALS)
     # end if
-    logger.debug(f'Reload-Signal configuration: {reload_signals!r}')
+    logger.debug(f'loaded global signal configuration: {global_reload_signals!r}')
 
     # prepare template
     template = get_template(INPUT_FILENAME)
@@ -180,16 +180,18 @@ def main():
         # now
         # containers
 
-        did_change, old_file = inspect_and_template(client, docker_version, old_file, template)
-        if did_change:
-            trigger_containers(client, containers=reload_signals)
-        # end def
+        did_change, old_file = inspect_and_template(client, docker_version, old_file, template, global_container_signals=global_reload_signals)
     # end for
 # end def
 
 
-def inspect_and_template(client, docker_version, old_file, template):
+def inspect_and_template(client, docker_version, old_file, template, global_container_signals=None):
+    if global_container_signals is None:
+        global_container_signals = []
+    # end if
     containers = []
+    local_container_signals = []
+
     # retry listing until it succeeds
     list_exception = False
     while list_exception is not None:
@@ -283,8 +285,16 @@ def inspect_and_template(client, docker_version, old_file, template):
             return label
         # end def
 
+        # check auto_proxy.signal before the auto_proxy.enable check continue
+        signal = get_label('auto_proxy.signal', '', replace_variables=False)
+        if signal:
+            container_signals = parse_signals(container.id, signal)
+            local_container_signals.extend(container_signals)
+            logger.debug(f'loaded signal configuration for container {container.name} {container.id}:\n{container_signals!r}')
+        # end if
+
         if get_label('auto_proxy.enable', '0', replace_variables=False) != '1':
-            logger.debug(f'skipping wrong container: {container.id} {service_name}')
+            logger.debug(f'skipping disabled container: {container.id} {service_name}')
             continue
         # end if
 
@@ -338,6 +348,8 @@ def inspect_and_template(client, docker_version, old_file, template):
         services_by_name=instances_by_name,
         services=instances_by_name.values(),
     )
+    if did_change:
+        trigger_containers(client, containers=global_container_signals + local_container_signals)
     return did_change, old_file
 # end def
 

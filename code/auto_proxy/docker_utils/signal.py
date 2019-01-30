@@ -8,27 +8,42 @@ __author__ = 'luckydonald'
 logger = logging.getLogger(__name__)
 
 
-def send_signal(client: docker.DockerClient, container: Container, signal: int):
+def parse_signals(container_id: str, string: str) -> List[Tuple[str, Signals]]:
     """
     Sends a signal to a docker client,
     e.g. `SIGHUP` to and `nginx` container for triggering a configuration reload.
     :return:
     """
+    parts = string.split(",")
+    return [(container_id, parse_signal(part)) for part in parts]
+# end def
+
 
 def parse_trigger_config(string: str) -> List[Tuple[str, Signals]]:
     parts = string.split(",")
     triggers = []
     for part in parts:
         container, signal = (p.strip() for p in part.split("="))  # if this fails you don't have "key=value"...
-        try:
-            signal = Signals[signal.upper()]  # lookup by name
-        except KeyError:
-            signal = int(signal)  # try lookup as int
-            signal = Signals(signal)  # lookup given int
-        # end if
-        triggers.append((container, signal))
+        signal = parse_signal(signal)
+        entry = container, signal
+        triggers.append(entry)
     # end for
     return triggers
+
+
+def parse_signal(signal: str) -> Signals:
+    """
+    string to signal
+    """
+    try:
+        signal = Signals[signal.upper()]  # lookup by name
+    except KeyError:
+        signal = int(signal)  # try lookup as int
+        signal = Signals(signal)  # lookup given int
+    # end if
+    return signal
+
+
 # end def
 
 
