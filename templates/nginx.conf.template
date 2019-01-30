@@ -134,6 +134,7 @@ server {
 	return 503;
 }
 
+resolver 127.0.0.11 valid=30s;
 
 {%- for service in services %}
     upstream internal.{{ service.name }}.internal {
@@ -151,7 +152,7 @@ server {
             # via network
             {%- for instance in service.scaled_instances %}
                 # {{ instance.name }}: {{ instance.id }}
-                server http://{{ instance.id[:12] }}:{{ service.port }};
+                server {{ instance.id[:12] }}:{{ service.port }};
             {%- endfor %}
         {%- endif %}
     }
@@ -169,7 +170,7 @@ server {
             proxy_set_header X-Incoming-IP $remote_addr;
             {%- if service.protocol == 'uwsgi' %}
                 include uwsgi_params;
-                uwsgi_pass http://internal.{{ service.name }}.internal;
+                uwsgi_pass uwsgi://internal.{{ service.name }}.internal;
             {%- else %}
                 proxy_pass http://internal.{{ service.name }}.internal;
             {%- endif %}
