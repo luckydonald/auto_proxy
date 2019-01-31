@@ -1,84 +1,86 @@
 {# This is how the available variables (with out _) could look like: -#}
 {%- set _docker = {
-    "name": 'hostname',
-    "container_count": 12,
-    "image_count": 42,
-    "version": "18.01.0-ce",
-    "api_version": "1.35",
-    "go_version": "go1.9.2",
-    "operating_system": "linux",
-    "architecture": "amd64",
-    "current_container_id": "1239asduad39dda9ds9da9d",
-    "datetime": "datetime.now()",
+  "name": 'hostname',
+  "container_count": 12,
+  "image_count": 42,
+  "version": "18.01.0-ce",
+  "api_version": "1.35",
+  "go_version": "go1.9.2",
+  "operating_system": "linux",
+  "architecture": "amd64",
+  "current_container_id": "1239asduad39dda9ds9da9d",
+  "datetime": "datetime.now()",
 } -%}
 {%- set _services = [
-    {
-        "name": "dockertgbot_derpi_pon",
-        "name_short": "derpi_pon",
-        "mount_point": "",
-        "buffer": True,
-        "hosts": ["test-bots.example.com"],
-        "access": "socket",
-        "protocol": "uwsgi",
-        "scaled_instances": [
-            {
-                "id": "asdad98dadad9a8d2",
-                "name": "dockertgbot_derpi_pon_1",
-            }
-        ],
-        "environment": {
-            "SOME_VAR": "value",
-        },
+  {
+    "name": "dockertgbot_derpi_pon",
+    "name_short": "derpi_pon",
+    "mount_point": "",
+    "buffer": True,
+    "hosts": ["test-bots.example.com"],
+    "enforce_https": "auto",
+    "access": "socket",
+    "protocol": "uwsgi",
+    "scaled_instances": [
+      {
+        "id": "asdad98dadad9a8d2",
+        "name": "dockertgbot_derpi_pon_1",
+      }
+    ],
+    "environment": {
+      "SOME_VAR": "value",
     },
-    {
-        "name": "dockertgbot_sticker_tag",
-        "name_short": "sticker_tag",
-        "mount_point": "",
-        "buffer": True,
-        "hosts": ["getstickers.me"],
-        "access": "net",
-        "port": 80,
-        "protocol": "http",
-        "scaled_instances": [
-            {
-                "id": "asdad98dadad9a8d2",
-                "name": "dockertgbot_sticker_tag_1",
-            }
-        ],
-        "environment": {
-            "SOME_VAR": "value",
-        },
+  },
+  {
+    "name": "dockertgbot_sticker_tag",
+    "name_short": "sticker_tag",
+    "mount_point": "",
+    "buffer": True,
+    "enforce_https": "1",
+    "hosts": ["getstickers.me"],
+    "access": "net",
+    "port": 80,
+    "protocol": "http",
+    "scaled_instances": [
+      {
+        "id": "asdad98dadad9a8d2",
+        "name": "dockertgbot_sticker_tag_1",
+      }
+    ],
+    "environment": {
+      "SOME_VAR": "value",
     },
-    {
+  },
+  {
+    "name": "agitated_booth",
+    "name_short": "agitated_booth",
+    "mount_point": "agitated_booth",
+    "buffer": False,
+    "enforce_https": "auto",
+    "hosts": ["example.com"],
+    "access": "net",
+    "port": 80,
+    "protocol": "http",
+    "scaled_instances": [
+      {
+        "id": "3adasdah343asd",
         "name": "agitated_booth",
-        "name_short": "agitated_booth",
-        "mount_point": "agitated_booth",
-        "buffer": False,
-        "hosts": ["example.com"],
-        "access": "net",
-        "port": 80,
-        "protocol": "http",
-        "scaled_instances": [
-            {
-                "id": "3adasdah343asd",
-                "name": "agitated_booth",
-            }
-        ],
-        "environment": {
-            "SOME_VAR": "value",
-        },
+      }
+    ],
+    "environment": {
+      "SOME_VAR": "value",
     },
-
+  },
 ] -%}
 {%- set _services_by_name = {
-    "dockertgbot_derpi_pon": _services[0],
-    "dockertgbot_sticker_tag": _services[1],
+  "dockertgbot_derpi_pon": _services[0],
+  "dockertgbot_sticker_tag": _services[1],
 } -%}
 
 {%- set _services_by_host = {
-    "bots.example.com": [_services[0], _services[1]],
-    "getstickers.me": [_services[1]],
-    "test-bots.example.com": [_services[2]],
+  "bots.example.com": [_services[0], _services[1]],
+  "getstickers.me": [_services[1]],
+  "test-bots.example.com": [_services[2]],
 } -%}
 
 ###############
@@ -165,12 +167,31 @@ server {
 
     {%- for service in services %}
         location /{{ service.mount_point }} {
-            proxy_buffering {{ "on" if service.buffer else "off"}};
+            # https redirect
+            {% if service.enforce_https == "auto" %}
+                if ($proxy_x_forwarded_proto = "http") {
+                    return 301 https://{{ host }}$request_uri;
+                }
+            {% if service.enforce_https == "proxy" %}
+                if ($http_x_forwarded_proto = "http") {
+                    return 301 https://{{ host }}$request_uri;
+                }
+            {% if service.enforce_https == "1" %}
+                if ($scheme = "http") {
+                    return 301 https://{{ host }}$request_uri;
+                }
+            {% else %}
+                # no https enforced
+            {% endif %}
+
             # HTTP 1.1 $ websocket support
             proxy_http_version 1.1;
             proxy_set_header Host $host;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection $proxy_connection;
+
+            # buffering
+            proxy_buffering {{ "on" if service.buffer else "off"}};
 
             # Mitigate httpoxy attack
             proxy_set_header Proxy "";

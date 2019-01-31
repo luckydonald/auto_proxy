@@ -305,6 +305,7 @@ def inspect_and_template(client, docker_version, old_file, template, global_cont
             "short_name": service_name_short,
             "mount_point": get_label('auto_proxy.mount_point', f"{service_name_short}"),
             "buffer": get_label('auto_proxy.buffer', "1", valid_values=["0", "1"]) == "1",
+            "enforce_https": get_label('auto_proxy.buffer', "0", valid_values=["0", "1", "auto", "proxy"]),
             "hosts": hosts,
             "access": get_label('auto_proxy.access', "net", valid_values=['net', 'socket']),
             "protocol": get_label('auto_proxy.protocol', "http", valid_values=['http', 'uwsgi']),
