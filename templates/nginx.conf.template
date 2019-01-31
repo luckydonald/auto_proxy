@@ -113,7 +113,7 @@ gzip_types text/plain text/css application/javascript application/json applicati
 log_format vhost '$host $remote_addr - $remote_user [$time_local] '
                  '"$request" $status $body_bytes_sent '
                  '"$http_referer" "$http_user_agent"';
-access_log off;
+# access_log off;
 # HTTP 1.1 support
 proxy_http_version 1.1;
 proxy_buffering off;
@@ -127,6 +127,8 @@ proxy_set_header X-Forwarded-Ssl $proxy_x_forwarded_ssl;
 proxy_set_header X-Forwarded-Port $proxy_x_forwarded_port;
 # Mitigate httpoxy attack (see README for details)
 proxy_set_header Proxy "";
+
+# Default Server
 server {
 	server_name _; # This is just an invalid value which will never trigger on a real hostname.
 	listen 80;
@@ -164,10 +166,14 @@ server {
 	listen 80;
 	access_log /var/log/nginx/access.log vhost;
 
+    {% include (host + ".template") ignore missing with context %}
+
     {%- for service in services %}
         location /{{ service.mount_point }} {
             proxy_set_header Host $host;
             proxy_set_header X-Incoming-IP $remote_addr;
+            proxy_set_header Connection $proxy_connection;
+            proxy_set_header Upgrade $http_upgrade;
             {%- if service.protocol == 'uwsgi' %}
                 include uwsgi_params;
                 uwsgi_pass uwsgi://internal.{{ service.name }}.internal;
