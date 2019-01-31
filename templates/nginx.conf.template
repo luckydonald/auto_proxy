@@ -172,11 +172,11 @@ server {
                 if ($proxy_x_forwarded_proto = "http") {
                     return 301 https://{{ host }}$request_uri;
                 }
-            {% if service.enforce_https == "proxy" %}
+            {% elif service.enforce_https == "proxy" %}
                 if ($http_x_forwarded_proto = "http") {
                     return 301 https://{{ host }}$request_uri;
                 }
-            {% if service.enforce_https == "1" %}
+            {% elif service.enforce_https == "1" %}
                 if ($scheme = "http") {
                     return 301 https://{{ host }}$request_uri;
                 }
