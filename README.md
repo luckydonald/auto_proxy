@@ -85,12 +85,12 @@ Default: `1`
 Like the [nginx default](http://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_buffering).
 
 #### `auto_proxy.enforce_https`
-If we encounter a connection with `http`, should we redirect to `https://$server_name$request_uri`.
+If we encounter a connection with `http`, should we redirect to `https://$server_name$request_uri`?
  
-- `0`: off. Default. Don't perform any checks. `https` stays `https`, `http` keeps being `http`.
-- `1`: The scheme of the client directly connected.  
+- `0`: off. Don't perform any checks. `https` stays `https`, `http` keeps being `http`.
+- `client`: The scheme of the client directly connected.  
 - `proxy`: We are behind another proxy (e.g. cloudflare), and we want to look into the `X-Forwarded-Proto` header. Enable only if you trust that proxy to set the header correctly.
-- `auto`: If there is a `X-Forwarded-Proto` header, use that, else use the connection's scheme. Note, if you are not behind a proxy, clients could set that header.
+- `1`: Default. Basically an "auto" mode trying `proxy` and `client`. If there is a `X-Forwarded-Proto` header, use that, else use the connection's scheme. Note, if you are not behind a proxy, clients could set that header.
 
 
 #### `auto_proxy.socket_name`

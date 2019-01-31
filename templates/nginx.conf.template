@@ -168,7 +168,7 @@ server {
     {%- for service in services %}
         location /{{ service.mount_point }} {
             # https redirect
-            {% if service.enforce_https == "auto" %}
+            {% if service.enforce_https == "1" %}
                 if ($proxy_x_forwarded_proto = "http") {
                     return 301 https://{{ host }}$request_uri;
                 }
@@ -176,7 +176,7 @@ server {
                 if ($http_x_forwarded_proto = "http") {
                     return 301 https://{{ host }}$request_uri;
                 }
-            {% elif service.enforce_https == "1" %}
+            {% elif service.enforce_https == "client" %}
                 if ($scheme = "http") {
                     return 301 https://{{ host }}$request_uri;
                 }
