@@ -293,7 +293,7 @@ def inspect_and_template(client, docker_version, old_file, template, global_cont
             logger.debug(f'loaded signal configuration for container {container.name} {container.id}:\n{container_signals!r}')
         # end if
 
-        if get_label('auto_proxy.enable', '0', replace_variables=False) != '1':
+        if get_label('auto_proxy.enable', '0', valid_values=["0", "1"], replace_variables=False) != '1':
             logger.debug(f'skipping disabled container: {container.id} {service_name}')
             continue
         # end if
@@ -304,6 +304,7 @@ def inspect_and_template(client, docker_version, old_file, template, global_cont
             "name": service_name,
             "short_name": service_name_short,
             "mount_point": get_label('auto_proxy.mount_point', f"{service_name_short}"),
+            "buffer": get_label('auto_proxy.buffer', "1", valid_values=["0", "1"]) == "1",
             "hosts": hosts,
             "access": get_label('auto_proxy.access', "net", valid_values=['net', 'socket']),
             "protocol": get_label('auto_proxy.protocol', "http", valid_values=['http', 'uwsgi']),

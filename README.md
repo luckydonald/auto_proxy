@@ -77,6 +77,13 @@ Default: `/service_name_short`,
 Where `service_name_short` is the name of the container,
 or just the service name in case of docker compose.
 
+#### `auto_proxy.buffer`
+If we want to buffer the response before sending.  
+Set to `1` to enable, `0` to disable.
+
+Default: `1`  
+Like the [nginx default](http://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_buffering).
+
 #### `auto_proxy.socket_name`
 > Used only if `auto_proxy.access = socket`.
 

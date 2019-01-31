@@ -15,7 +15,9 @@
     {
         "name": "dockertgbot_derpi_pon",
         "name_short": "derpi_pon",
-        "hosts": ["more-bots.bonbotics.io"],
+        "mount_point": "",
+        "buffer": True,
+        "hosts": ["test-bots.example.com"],
         "access": "socket",
         "protocol": "uwsgi",
         "scaled_instances": [
@@ -31,6 +33,8 @@
     {
         "name": "dockertgbot_sticker_tag",
         "name_short": "sticker_tag",
+        "mount_point": "",
+        "buffer": True,
         "hosts": ["getstickers.me"],
         "access": "net",
         "port": 80,
@@ -48,6 +52,8 @@
     {
         "name": "agitated_booth",
         "name_short": "agitated_booth",
+        "mount_point": "agitated_booth",
+        "buffer": False,
         "hosts": ["example.com"],
         "access": "net",
         "port": 80,
@@ -70,9 +76,9 @@
 } -%}
 
 {%- set _services_by_host = {
-    "bots.bonbotics.io": [_services[0], _services[1]],
+    "bots.example.com": [_services[0], _services[1]],
     "getstickers.me": [_services[1]],
-    "more-bots.bonbotics.io": [_services[2]],
+    "test-bots.example.com": [_services[2]],
 } -%}
 
 ###############
@@ -114,19 +120,8 @@ log_format vhost '$host $remote_addr - $remote_user [$time_local] '
                  '"$request" $status $body_bytes_sent '
                  '"$http_referer" "$http_user_agent"';
 # access_log off;
-# HTTP 1.1 support
-proxy_http_version 1.1;
-proxy_buffering off;
-proxy_set_header Host $http_host;
-proxy_set_header Upgrade $http_upgrade;
-proxy_set_header Connection $proxy_connection;
-proxy_set_header X-Real-IP $remote_addr;
-proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-proxy_set_header X-Forwarded-Proto $proxy_x_forwarded_proto;
-proxy_set_header X-Forwarded-Ssl $proxy_x_forwarded_ssl;
-proxy_set_header X-Forwarded-Port $proxy_x_forwarded_port;
-# Mitigate httpoxy attack (see README for details)
-proxy_set_header Proxy "";
+
+
 
 # Default Server
 server {
@@ -170,8 +165,23 @@ server {
 
     {%- for service in services %}
         location /{{ service.mount_point }} {
+            proxy_buffering {{ "on" if service.buffer else "off"}};
+            # HTTP 1.1 $ websocket support
+            proxy_http_version 1.1;
             proxy_set_header Host $host;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $proxy_connection;
+
+            # Mitigate httpoxy attack
+            proxy_set_header Proxy "";
+
+            proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Incoming-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $proxy_x_forwarded_proto;
+            proxy_set_header X-Forwarded-Ssl $proxy_x_forwarded_ssl;
+            proxy_set_header X-Forwarded-Port $proxy_x_forwarded_port;
+
             proxy_set_header Connection $proxy_connection;
             proxy_set_header Upgrade $http_upgrade;
             {%- if service.protocol == 'uwsgi' %}
