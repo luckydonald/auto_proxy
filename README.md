@@ -112,7 +112,11 @@ Default: `/` (root)
 
 #### `auto_proxy.directives.nginx.*`
 Allows to set specific nginx directives for this container.
-For example `auto_proxy.directives.nginx.client_max_body_size: "2M"` would increase the [nginx's upload size](http://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size) to 2 MB for that route.
+For example `auto_proxy.directives.nginx.client_max_body_size: "2M"` would increase the [nginx's upload size](http://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size) to 2 MB for that route. 
+
+If you specify `auto_proxy.directives.nginx` without `.<suffix>`, you can provide a json encoded dictionary, e.g. `"{\"client_max_body_size\": \"2M\"}"`.
+Any `auto_proxy.directives.nginx.*` key will add/overwrite values to this array. Default is an empty array `"{}"`.
+
 
 ## Example `docker-compose.yml`
 
