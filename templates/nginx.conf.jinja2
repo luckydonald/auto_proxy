@@ -97,6 +97,12 @@ map $http_x_forwarded_proto $proxy_x_forwarded_proto {
   default $http_x_forwarded_proto;
   ''      $scheme;
 }
+map $proxy_x_forwarded_proto $proxy_x_forwarded_proto_secured {
+  default 'https';
+  ''      'https';
+  'http'  'https';
+  'ws'    'wss';
+}
 # If we receive X-Forwarded-Port, pass it through; otherwise, pass along the
 # server port the client connected to
 map $http_x_forwarded_port $proxy_x_forwarded_port {
@@ -163,7 +169,7 @@ server {
 	listen 80;
 	access_log /var/log/nginx/access.log vhost;
 
-    {% include (host + ".template") ignore missing with context %}
+    {% include (host + ".jinja2") ignore missing with context %}
 
     {%- for service in services %}
         location /{{ service.mount_point }} {

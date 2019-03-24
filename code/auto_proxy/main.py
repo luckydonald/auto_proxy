@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_HOST="example.com"
-INPUT_FILENAME = "nginx.conf.template"
+INPUT_FILENAME = "nginx.conf.jinja2"
 OUTPUT_FILENAME = "/output/nginx.conf"
 
 
