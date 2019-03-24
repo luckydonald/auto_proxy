@@ -10,6 +10,40 @@
   "architecture": "amd64",
   "current_container_id": "1239asduad39dda9ds9da9d",
   "datetime": "datetime.now()",
+  "git_info": {
+    commit_short: "cb7af07",
+    commit: "cb7af0781f79986ca2403cf9df9ae3731e0021ca",
+    dirty_project: True,
+    dirty_global: True,
+    message: "[non_bot auto_proxy] Added description about the parent name of the `auto_proxy.directives.nginx` array.",
+    author: "luckydonald <luckydonald@flutterb.at>",
+    date: "Sun, 24 Mar 2019 02:48:57 +0100",
+    head: "deploy2",
+    branches: ["deploy2"],
+    tags: ["auto_proxy_deploy_2019-03-24_01"],
+    modified_files: {
+        'added': [],
+        'copied': [],
+        'deleted': [],
+        'modified': [
+            '_non_bot/auto_proxy/code/auto_proxy/classes.py',
+            '_non_bot/auto_proxy/code/auto_proxy/main.py',
+            '_non_bot/auto_proxy/templates/nginx.conf.jinja2'
+        ],
+        'renamed': [],
+        'type_changed': [],
+        'unmerged': [],
+        'unknown': [],
+        'broken': [],
+        'by_file': {
+            '_non_bot/auto_proxy/code/auto_proxy/classes.py': 'M',
+            '_non_bot/auto_proxy/code/auto_proxy/main.py': 'M',
+            '_non_bot/auto_proxy/templates/nginx.conf.jinja2': 'M'
+        }
+    },
+    modified_files_str: "M	_non_bot/auto_proxy/code/auto_proxy/classes.py\nM	_non_bot/auto_proxy/code/auto_proxy/main.py\nM	_non_bot/auto_proxy/templates/nginx.conf.jinja2",
+    version_str: 'cb7af07.dirty-glob.dirty-bot'
+  },
 } -%}
 {%- set _services = [
   {
@@ -94,6 +128,7 @@
 # Containers: {{ docker.container_count }}
 # Images: {{ docker.image_count }}
 # Build by [auto_proxy] running in container {{ docker.current_container_id }}.
+# Version of [auto_proxy]: {{ docker.git_info.version_str }} ({{ docker.git_info.date }})
 ###############
 
 # If we receive X-Forwarded-Proto, pass it through; otherwise, pass along the

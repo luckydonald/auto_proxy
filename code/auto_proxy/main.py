@@ -15,7 +15,7 @@ from auto_proxy.secrets import SIGNALS
 from .jinja2_utils import get_template
 from .docker_utils import get_current_container_id
 from .docker_utils.env import extract_container_envs
-from .classes import DockerInfo
+from .classes import DockerInfo, GitInfo
 from .watcher import Watcher
 
 __author__ = 'luckydonald'
@@ -89,6 +89,7 @@ NUMBERS = {
 }
 STATUS = {s.key: s for s in statussses}
 
+GIT_INFO = GitInfo.from_gitinfo_values()
 
 def main():
     logger.success("Will watch for status changes.")
@@ -454,7 +455,8 @@ def run_templating(
         operating_system=docker_version.get("Os"),
         architecture=docker_version.get("Arch"),
         current_container_id=get_current_container_id(),
-        datetime=datetime.now()
+        datetime=datetime.now(),
+        git_info=GIT_INFO,
     )
 
     new_file = template.render(
