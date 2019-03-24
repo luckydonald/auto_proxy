@@ -127,8 +127,13 @@
 # Date: {{ docker.datetime.isoformat() }}
 # Containers: {{ docker.container_count }}
 # Images: {{ docker.image_count }}
-# Build by [auto_proxy] running in container {{ docker.current_container_id }}.
-# Version of [auto_proxy]: {{ docker.git_info.version_str }} ({{ docker.git_info.date }})
+# Container running [auto_proxy]: {{ docker.current_container_id }}.
+# Build of [auto_proxy]: Based on git commit {{ docker.git_info.version_str }} ({{ docker.git_info.date }})
+{%- if docker.git_info.modified_files.by_file %}
+#                        Additional changes:
+{%- for file, reason in docker.git_info.modified_files.by_file.items() %}
+#                        {{ reason }}    {{ file }}
+{%- endfor %}{%- endif %}
 ###############
 
 # If we receive X-Forwarded-Proto, pass it through; otherwise, pass along the
