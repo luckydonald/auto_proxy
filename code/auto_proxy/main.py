@@ -3,7 +3,7 @@ import json
 import re
 from json import JSONDecodeError
 
-from typing import List, Dict
+from typing import List, Dict, Union
 from docker import errors as docker_errors
 from datetime import datetime
 from DictObject import DictObject
@@ -330,8 +330,7 @@ def inspect_and_template(client, docker_version, old_file, template, global_cont
                 replace_variables_default = replace_variables
             # end if
             container.labels: dict
-            data_array: str
-            data_array = get_label(
+            data_array: Union[str, None] = get_label(
                 name, default="", valid_values=None,
                 replace_variables_label=replace_variables_label, replace_variables_default=replace_variables_default,
                 replace_variables=replace_variables
@@ -340,13 +339,14 @@ def inspect_and_template(client, docker_version, old_file, template, global_cont
             if data_array:
                 logger.debug(f"Found exact label {name!r} of container {service_name!r} ({container.id!r}), parsing as json to use as base for adding sub-labels: {data_array!r}")
                 try:
-                    data_array = json.loads(data_array)
+                    data_array: dict = json.loads(data_array)
                 except JSONDecodeError:
                     logger.warning(f"The data for the array at {name!r} of container {service_name!r} ({container.id!r}) could not be parsed. Using default {default!r}.")
-                    data_array = default
+                    data_array: dict = default
                 # end try
+            else:
+                data_array: dict = default
             # end if
-            data_array: dict
 
             name_prefix = name + "."
             name_prefix_len = len(name_prefix)
@@ -355,9 +355,9 @@ def inspect_and_template(client, docker_version, old_file, template, global_cont
                     # not an label of our array
                     continue
                 # end if
-                key = label[name_prefix_len + 1:]  # strip the "name." prefix
+                key = label[name_prefix_len:]  # strip the "name." prefix
                 value = get_label(
-                    name, default="", valid_values=None,
+                    label, default="", valid_values=None,
                     replace_variables_label=replace_variables_label, replace_variables_default=replace_variables_default,
                     replace_variables=replace_variables
                 )
