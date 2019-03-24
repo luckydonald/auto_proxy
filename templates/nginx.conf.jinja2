@@ -265,7 +265,7 @@ server {
             {%- if service.directives.nginx %}
                 # special nginx directives
                 {%- for nginx_directive, nginx_value in service.directives.nginx.items() %}
-                    {{ nginx_directive }}: {{ nginx_value }};
+                    {{ nginx_directive }} {{ nginx_value }};
                 {%- endfor %}
             {%- endif %}
         }
