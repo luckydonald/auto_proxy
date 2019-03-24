@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
+import json
 import re
+from json import JSONDecodeError
 
-from typing import List
+from typing import List, Dict
 from docker import errors as docker_errors
 from datetime import datetime
 from DictObject import DictObject
@@ -248,7 +250,7 @@ def inspect_and_template(client, docker_version, old_file, template, global_cont
             :type  default: str
 
             :param valid_values: A list of valid values
-            :type  valid_values: List[str]
+            :type  valid_values: List[str]|None
 
             :param replace_variables_label: If we should replace `§{VARNAME}` environment variables in the loaded label value.
             :type  replace_variables_label: bool
@@ -262,9 +264,11 @@ def inspect_and_template(client, docker_version, old_file, template, global_cont
                                       Default: No action (`None`)
             :type  replace_variables_label: None|bool
 
-            :return:
+            :return: The label value or the default value.
+            :rtype: str
             """
             if isinstance(replace_variables, bool):
+                # `replace_variables` overwrites `replace_variables_label` and `replace_variables_default`.
                 replace_variables_label = replace_variables
                 replace_variables_default = replace_variables
             # end if
@@ -283,6 +287,82 @@ def inspect_and_template(client, docker_version, old_file, template, global_cont
                 raise AssertionError(f'Invalid value for label {name}: Got {label!r}, allowed are {valid_values!r}')
             # end if
             return label
+        # end def
+
+        def get_label_array(
+            name, default=None,
+            replace_variables_label=True, replace_variables_default=False, replace_variables=None,
+        ):
+            """
+            Gets a label from the container label section.
+            Expects multiple sub-keys like "name.xxx", "name.yyy", "name.zzz".
+            Optionally allows to pull in environment variables of the form `§{VARNAME}`.
+
+            :param name: name of the label
+            :type  name: str
+
+            :param default: The default value, if label was not found.  If not set uses an empty array `{}`.
+            :type  default: dict
+
+            :param replace_variables_label: If we should replace `§{VARNAME}` environment variables in the loaded label value.
+            :type  replace_variables_label: bool
+
+            :param replace_variables_default: If we should replace `§{VARNAME}` environment variables in the fallback default value.
+            :type  replace_variables_default: bool
+
+            :param replace_variables: If we should replace `§{VARNAME}` environment variables
+                                      in the loaded label value and fallback default value.
+                                      This overwrites the settings of `replace_variables_label` and `replace_variables_default`.
+                                      Default: No action (`None`)
+            :type  replace_variables_label: None|bool
+
+            :return: The array of labels grouped together with a common prefix.
+            :rtype: Dict[str, str]
+            """
+            name = name.rstrip(".")  # don't end with a dot.
+            if default is None:
+                default = {}
+            # end if
+            if isinstance(replace_variables, bool):
+                # `replace_variables` overwrites `replace_variables_label` and `replace_variables_default`.
+                replace_variables_label = replace_variables
+                replace_variables_default = replace_variables
+            # end if
+            container.labels: dict
+            data_array: str
+            data_array = get_label(
+                name, default="", valid_values=None,
+                replace_variables_label=replace_variables_label, replace_variables_default=replace_variables_default,
+                replace_variables=replace_variables
+            )
+            # check if we get the key itself. If we do, assume string containing encoded json.
+            if data_array:
+                logger.debug(f"Found exact label {name!r} of container {service_name!r} ({container.id!r}), parsing as json to use as base for adding sub-labels: {data_array!r}")
+                try:
+                    data_array = json.loads(data_array)
+                except JSONDecodeError:
+                    logger.warning(f"The data for the array at {name!r} of container {service_name!r} ({container.id!r}) could not be parsed. Using default {default!r}.")
+                    data_array = default
+                # end try
+            # end if
+            data_array: dict
+
+            name_prefix = name + "."
+            name_prefix_len = len(name_prefix)
+            for label in container.labels.keys():
+                if not label.startswith(name_prefix):
+                    # not an label of our array
+                    continue
+                # end if
+                key = label[name_prefix_len + 1:]  # strip the "name." prefix
+                value = get_label(
+                    name, default="", valid_values=None,
+                    replace_variables_label=replace_variables_label, replace_variables_default=replace_variables_default,
+                    replace_variables=replace_variables
+                )
+                data_array[key] = value
+            # end for
+            return data_array
         # end def
 
         # check auto_proxy.signal before the auto_proxy.enable check continue
@@ -312,6 +392,9 @@ def inspect_and_template(client, docker_version, old_file, template, global_cont
             "port": int(get_label('auto_proxy.port', "80")),
             "socket_name": get_label('auto_proxy.socket_name', f"{service_name_short}.sock"),
             "environment": container_environment_vars,
+            "directives": {
+                "nginx": get_label_array('auto_proxy.directives.nginx'),
+            },
         }
         instance_data = {
             "id": container.id,

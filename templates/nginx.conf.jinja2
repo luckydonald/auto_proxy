@@ -30,6 +30,11 @@
     "environment": {
       "SOME_VAR": "value",
     },
+    "directives": {
+      "nginx": {
+        "client_max_body_size": "2M",
+      },
+    },
   },
   {
     "name": "dockertgbot_sticker_tag",
@@ -216,6 +221,12 @@ server {
                 uwsgi_pass uwsgi://internal.{{ service.name }}.internal;
             {%- else %}
                 proxy_pass http://internal.{{ service.name }}.internal;
+            {%- endif %}
+            {%- if service.directives.nginx %}
+                # special nginx directives
+                {%- for nginx_directive, nginx_value in service.directives.nginx.items %}
+                    {{ nginx_directive }}: {{ nginx_value }};
+                {%- endfor %}
             {%- endif %}
         }
     {%- endfor %}

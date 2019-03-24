@@ -110,6 +110,10 @@ Set an path in the container to use.
 Default: `/` (root)
 
 
+#### `auto_proxy.directives.nginx.*`
+Allows to set specific nginx directives for this container.
+For example `auto_proxy.directives.nginx.client_max_body_size: "2M"` would increase the [nginx's upload size](http://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size) to 2 MB for that route.
+
 ## Example `docker-compose.yml`
 
 Having something like  
@@ -152,13 +156,15 @@ services:
       auto_proxy.host: "§{URL_HOSTNAME}"
       auto_proxy.mount_point: "/§{URL_PATH}/%{API_VERSION}/"
       auto_proxy.access: socket
+      auto_proxy.directives.nginx.client_max_body_size: 2M
 ```
 
-Would result in ´app´ having the labels
-- `auto_proxy.enable`: `1`
-- `auto_proxy.host`: `example.com`
-- `auto_proxy.mount_point`: `/service/v1/`
+Would result in ´app´ having the values
+- `auto_proxy.enable`: `1` - Will be configured
+- `auto_proxy.host`: `example.com`  - Specifies server block
+- `auto_proxy.mount_point`: `/service/v1/`  - So when you open "example.com/service/v1/" 
 - `auto_proxy.access`: `socket`
+- `auto_proxy.directives`: `{ "nginx": { "client_max_body_size": "2M" } }` - only this service will have a bigger upload size.
 
 And the `proxy` container getting a `SIGHUP` signal
 after any configuration change. 
