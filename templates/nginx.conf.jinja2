@@ -50,6 +50,7 @@
     "name": "dockertgbot_derpi_pon",
     "name_short": "derpi_pon",
     "mount_point": "",
+    "strip_mount_point": False,
     "buffer": True,
     "hosts": ["test-bots.example.com"],
     "enforce_https": "auto",
@@ -74,6 +75,7 @@
     "name": "dockertgbot_sticker_tag",
     "name_short": "sticker_tag",
     "mount_point": "",
+    "strip_mount_point": False,
     "buffer": True,
     "enforce_https": "1",
     "hosts": ["getstickers.me"],
@@ -94,6 +96,7 @@
     "name": "agitated_booth",
     "name_short": "agitated_booth",
     "mount_point": "agitated_booth",
+    "strip_mount_point": True,
     "buffer": False,
     "enforce_https": "auto",
     "hosts": ["example.com"],
@@ -217,7 +220,7 @@ server {
     {% include (host + ".jinja2") ignore missing with context %}
 
     {%- for service in services %}
-        location /{{ service.mount_point }} {
+        location {% if service.strip_mount_point %}~ {% endif %}/{{ service.mount_point }}{% if service.strip_mount_point %}/(?<ndpath>.*){% endif %} {
             # https redirect
             {% if service.enforce_https == "1" %}
                 if ($proxy_x_forwarded_proto = "http") {
@@ -258,9 +261,9 @@ server {
             proxy_set_header Upgrade $http_upgrade;
             {%- if service.protocol == 'uwsgi' %}
                 include uwsgi_params;
-                uwsgi_pass uwsgi://internal.{{ service.name }}.internal;
+                uwsgi_pass uwsgi://internal.{{ service.name }}.internal{% if service.strip_mount_point %}/$ndpath$is_args$args{% endif %};
             {%- else %}
-                proxy_pass http://internal.{{ service.name }}.internal;
+                proxy_pass http://internal.{{ service.name }}.internal{% if service.strip_mount_point %}/$ndpath$is_args$args{% endif %};
             {%- endif %}
             {%- if service.directives.nginx %}
                 # special nginx directives

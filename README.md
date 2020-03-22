@@ -6,8 +6,8 @@ Use environment variables to configure the `auto_proxy` container.
 
 ### List of available environment variables
 #### `SIGNALS`
-> Note: Any containers with the [`auto_proxy.signal` label](#auto_proxy-signal) will be automatically added to this list, with the correct container id. 
-> Therefore you should prefer setting the `auto_proxy.signal` label on a specific container over using this. This is intended only for containers where you somehow can't set the labels.  
+> Note: Any containers with the [`auto_proxy.signal` label](#auto_proxy-signal) will be automatically added to this list, with the correct container id.
+> Therefore you should prefer setting the `auto_proxy.signal` label on a specific container over using this. This is intended only for containers where you somehow can't set the labels.
 
 On creation of a new config file it can send signals to other containers, to e.g. reload configuration files.
 Provide key-value like `container=signal`.
@@ -15,12 +15,12 @@ Provide key-value like `container=signal`.
 - `container` can be either the name or the id of the container.
 - `signal` can be either the case insensitive signal name, or it's number.
 
-If you want to send multiple signals make a comma separated list.  
+If you want to send multiple signals make a comma separated list.
 
 For example:
 ```dotenv
 SIGNALS=nginx=sighup,nginx=1,nginx=SIGHUB
-```  
+```
 This would send `SIGHUP` 3 times to the `nginx` container.
 
 
@@ -29,7 +29,7 @@ This would send `SIGHUP` 3 times to the `nginx` container.
 ### Insert environment variables
 On supported labels you can insert environment variables of that container.
 Syntax is `§{VAR_NAME}`.
- 
+
 ### List of available labels
 
 #### `auto_proxy.signal`
@@ -39,7 +39,7 @@ This container will be send an signal in case of a change in configuration.
 Can be the signal number or the case insensitive name.
 Also a comma separated list of multiple signals to send is possible.
 
-Example: `auto_proxy.signal: SIGHUP,1,sighup` would have it send the `SIGHUP` signal 3 times. 
+Example: `auto_proxy.signal: SIGHUP,1,sighup` would have it send the `SIGHUP` signal 3 times.
 
 Note: This label don't support [environment variables](#insert-environment-variables).
 
@@ -77,18 +77,31 @@ Default: `/service_name_short`,
 Where `service_name_short` is the name of the container,
 or just the service name in case of docker compose.
 
-#### `auto_proxy.buffer`
-If we want to buffer the response before sending.  
+#### `auto_proxy.strip_mount_point`
+If the `mount_point` part should be removed when routing into the container.
 Set to `1` to enable, `0` to disable.
 
-Default: `1`  
+Default: `0`
+
+For the nginx config that means that `mount_point` will be treated as part of that regex used to remove the path.
+```nginx
+location ~ /{{auto_proxy.mount_point}}/(?<ndpath>.*) {
+    proxy_pass http://backend/$ndpath$is_args$args;
+}
+```
+
+#### `auto_proxy.buffer`
+If we want to buffer the response before sending.
+Set to `1` to enable, `0` to disable.
+
+Default: `1`
 Like the [nginx default](http://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_buffering).
 
 #### `auto_proxy.enforce_https`
 If we encounter a connection with `http`, should we redirect to `https://$server_name$request_uri`?
- 
+
 - `0`: off. Don't perform any checks. `https` stays `https`, `http` keeps being `http`.
-- `client`: The scheme of the client directly connected.  
+- `client`: The scheme of the client directly connected.
 - `proxy`: We are behind another proxy (e.g. cloudflare), and we want to look into the `X-Forwarded-Proto` header. Enable only if you trust that proxy to set the header correctly.
 - `1`: Default. Basically an "auto" mode trying `proxy` and `client`. If there is a `X-Forwarded-Proto` header, use that, else use the connection's scheme. Note, if you are not behind a proxy, clients could set that header.
 
@@ -112,7 +125,7 @@ Default: `/` (root)
 
 #### `auto_proxy.directives.nginx.*`
 Allows to set specific nginx directives for this container.
-For example `auto_proxy.directives.nginx.client_max_body_size: "2M"` would increase the [nginx's upload size](http://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size) to 2 MB for that route. 
+For example `auto_proxy.directives.nginx.client_max_body_size: "2M"` would increase the [nginx's upload size](http://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size) to 2 MB for that route.
 
 If you specify `auto_proxy.directives.nginx` without `.<suffix>`, you can provide a json encoded dictionary, e.g. `"{\"client_max_body_size\": \"2M\"}"`.
 Any `auto_proxy.directives.nginx.*` key will add/overwrite values to this array. Default is an empty array `"{}"`.
@@ -120,7 +133,7 @@ Any `auto_proxy.directives.nginx.*` key will add/overwrite values to this array.
 
 ## Example `docker-compose.yml`
 
-Having something like  
+Having something like
 ```yml
 version: "2.3" # probably newer is fine too.
 
@@ -128,7 +141,7 @@ volumes:
   auto_proxy:
     external: false
     driver: local
-    
+
 services:
   auto_proxy:
     restart: 'always'
@@ -146,7 +159,7 @@ services:
       - auto_proxy:/etc/nginx/conf.d/
     labels:
       auto_proxy.signal: SIGHUP
-    
+
   app:
     # ...
     image: 'jwilder/whoami'  # for example
@@ -156,7 +169,7 @@ services:
       API_VERSION: "v1"
       URL_HOSTNAME: "example.com"
     labels:
-      auto_proxy.enable: "1" 
+      auto_proxy.enable: "1"
       auto_proxy.host: "§{URL_HOSTNAME}"
       auto_proxy.mount_point: "/§{URL_PATH}/%{API_VERSION}/"
       auto_proxy.access: socket
@@ -166,9 +179,9 @@ services:
 Would result in ´app´ having the values
 - `auto_proxy.enable`: `1` - Will be configured
 - `auto_proxy.host`: `example.com`  - Specifies server block
-- `auto_proxy.mount_point`: `/service/v1/`  - So when you open "example.com/service/v1/" 
+- `auto_proxy.mount_point`: `/service/v1/`  - So when you open "example.com/service/v1/"
 - `auto_proxy.access`: `socket`
 - `auto_proxy.directives`: `{ "nginx": { "client_max_body_size": "2M" } }` - only this service will have a bigger upload size.
 
 And the `proxy` container getting a `SIGHUP` signal
-after any configuration change. 
+after any configuration change.

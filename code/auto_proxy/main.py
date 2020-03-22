@@ -385,6 +385,7 @@ def inspect_and_template(client, docker_version, old_file, template, global_cont
             "name": service_name,
             "short_name": service_name_short,
             "mount_point": get_label('auto_proxy.mount_point', f"{service_name_short}"),
+            "strip_mount_point": get_label('auto_proxy.strip_mount_point', "0", valid_values=["0", "1"]) == "1",
             "buffer": get_label('auto_proxy.buffer', "1", valid_values=["0", "1"]) == "1",
             "enforce_https": get_label('auto_proxy.enforce_https', "1", valid_values=["0", "1", "client", "proxy"]),
             "hosts": hosts,
