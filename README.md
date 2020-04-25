@@ -127,15 +127,16 @@ Default: `/` (root)
 Allows to set specific nginx directives for this container.
 For example `auto_proxy.directives.nginx.client_max_body_size: "2M"` would increase the [nginx's upload size](http://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size) to 2 MB for that route.
 
-If you specify `auto_proxy.directives.nginx` without `.<suffix>`, you can provide a json encoded dictionary, e.g. `"{\"client_max_body_size\": \"2M\"}"`.
-Any `auto_proxy.directives.nginx.*` key will add/overwrite values to this array. Default is an empty array `"{}"`.
+If you specify `auto_proxy.directives.nginx` without `.<suffix>`, you can provide a json encoded list of two element `[key, value]` tuples,
+e.g. `auto_proxy.directives.nginx: "[[\"client_max_body_size\", \"2M\"], [\"proxy_set_header\", \"SCRIPT_NAME /postgres_browser\"], [\"proxy_set_header\", \"SERVER_PORT 443\"]]"`.
+Any `auto_proxy.directives.nginx.*` key will add values to this array. Default is an empty array `"[]"`.
 
 
-## Example `docker-compose.yml`
+## Example `docker-compose.yml`:
 
 Having something like
 ```yml
-version: "2.3" # probably newer is fine too.
+version: "2.3" # newer is fine too.
 
 volumes:
   auto_proxy:
@@ -174,6 +175,8 @@ services:
       auto_proxy.mount_point: "/§{URL_PATH}/%{API_VERSION}/"
       auto_proxy.access: socket
       auto_proxy.directives.nginx.client_max_body_size: 2M
+      auto_proxy.directives.nginx: '["proxy_set_header", "SCRIPT_NAME /postgres_browser"], ["proxy_set_header", "SERVER_PORT 443"]]'
+
 ```
 
 Would result in ´app´ having the values
@@ -181,7 +184,16 @@ Would result in ´app´ having the values
 - `auto_proxy.host`: `example.com`  - Specifies server block
 - `auto_proxy.mount_point`: `/service/v1/`  - So when you open "example.com/service/v1/"
 - `auto_proxy.access`: `socket`
-- `auto_proxy.directives`: `{ "nginx": { "client_max_body_size": "2M" } }` - only this service will have a bigger upload size.
+- `auto_proxy.directives`:
+    ```json
+    {
+      "nginx": [
+        ["client_max_body_size", "2M"],
+        ["proxy_set_header", "SCRIPT_NAME /postgres_browser"],
+        ["proxy_set_header", "SERVER_PORT 443"],
+      ]
+    }```
+  So only this service will have a bigger upload size, and it will set two additional proxy variables when proxying the request.
 
 And the `proxy` container getting a `SIGHUP` signal
 after any configuration change.

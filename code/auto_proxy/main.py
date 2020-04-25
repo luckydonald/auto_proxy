@@ -293,7 +293,7 @@ def inspect_and_template(client, docker_version, old_file, template, global_cont
         def get_label_array(
             name, default=None,
             replace_variables_label=True, replace_variables_default=False, replace_variables=None,
-        ):
+        ) -> List[List]:
             """
             Gets a label from the container label section.
             Expects multiple sub-keys like "name.xxx", "name.yyy", "name.zzz".
@@ -322,14 +322,14 @@ def inspect_and_template(client, docker_version, old_file, template, global_cont
             """
             name = name.rstrip(".")  # don't end with a dot.
             if default is None:
-                default = {}
+                default = []
             # end if
             if isinstance(replace_variables, bool):
                 # `replace_variables` overwrites `replace_variables_label` and `replace_variables_default`.
                 replace_variables_label = replace_variables
                 replace_variables_default = replace_variables
             # end if
-            container.labels: dict
+            container.labels: list
             data_array: Union[str, None] = get_label(
                 name, default="", valid_values=None,
                 replace_variables_label=replace_variables_label, replace_variables_default=replace_variables_default,
@@ -342,10 +342,10 @@ def inspect_and_template(client, docker_version, old_file, template, global_cont
                     data_array: dict = json.loads(data_array)
                 except JSONDecodeError:
                     logger.warning(f"The data for the array at {name!r} of container {service_name!r} ({container.id!r}) could not be parsed. Using default {default!r}.")
-                    data_array: dict = default
+                    data_array: list = default
                 # end try
             else:
-                data_array: dict = default
+                data_array: list = default
             # end if
 
             name_prefix = name + "."
@@ -361,7 +361,7 @@ def inspect_and_template(client, docker_version, old_file, template, global_cont
                     replace_variables_label=replace_variables_label, replace_variables_default=replace_variables_default,
                     replace_variables=replace_variables
                 )
-                data_array[key] = value
+                data_array.append([key, value])
             # end for
             return data_array
         # end def
