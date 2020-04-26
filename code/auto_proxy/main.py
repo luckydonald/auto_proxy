@@ -221,6 +221,7 @@ def inspect_and_template(client, docker_version, old_file, template, global_cont
             service_name = container.name
             service_name_short = service_name
         # end if
+        logger.debug(f'Processing {service_name}...')
 
         container_environment_vars = extract_container_envs(container)
 
